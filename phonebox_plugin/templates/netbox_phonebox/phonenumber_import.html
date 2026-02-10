@@ -1,0 +1,56 @@
+{% extends 'generic/object_edit.html' %}
+{% load form_helpers %}
+
+{% block title %}Import Phone Numbers{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <h5 class="card-header">
+                <i class="mdi mdi-upload"></i> Import Phone Numbers from CSV
+            </h5>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    {% render_field form.csv_file %}
+                    {% render_field form.update_existing %}
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="mdi mdi-information"></i> CSV Format</h6>
+                        <p>Your CSV file should have the following columns:</p>
+                        <ul class="mb-0">
+                            <li><strong>number</strong> (required) - Phone number in international format</li>
+                            <li><strong>type</strong> (optional) - mobile, landline, voip, fax, emergency, toll_free</li>
+                            <li><strong>status</strong> (optional) - active, reserved, deprecated</li>
+                            <li><strong>country_code</strong> (optional) - RU, US, GB, etc.</li>
+                            <li><strong>provider</strong> (optional) - Provider name</li>
+                            <li><strong>contact</strong> (optional) - Contact name or ID</li>
+                            <li><strong>device</strong> (optional) - Device name or ID</li>
+                            <li><strong>description</strong> (optional) - Description</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <h6><i class="mdi mdi-alert"></i> Example CSV</h6>
+                        <pre class="mb-0">number,type,status,country_code,provider,description
++79991234567,mobile,active,RU,MegaFon,CEO mobile
++74951234567,landline,active,RU,MTS,Office phone
++12025551234,mobile,active,US,Verizon,US office</pre>
+                    </div>
+                    
+                    <div class="text-end">
+                        <a href="{% url 'plugins:netbox_phonebox:phonenumber_list' %}" class="btn btn-secondary">
+                            <i class="mdi mdi-close"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="mdi mdi-upload"></i> Import
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

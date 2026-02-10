@@ -1,0 +1,183 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load render_table from django_tables2 %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <!-- Provider Details -->
+        <div class="card">
+            <h5 class="card-header">Provider Details</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Name</th>
+                        <td><strong>{{ object.name }}</strong></td>
+                    </tr>
+                    {% if object.description %}
+                    <tr>
+                        <th scope="row">Description</th>
+                        <td>{{ object.description }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if object.website %}
+                    <tr>
+                        <th scope="row">Website</th>
+                        <td>
+                            <a href="{{ object.website }}" target="_blank">
+                                {{ object.website }} <i class="mdi mdi-open-in-new"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if object.support_phone %}
+                    <tr>
+                        <th scope="row">Support Phone</th>
+                        <td>
+                            <a href="tel:{{ object.support_phone }}">
+                                {{ object.support_phone }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if object.support_email %}
+                    <tr>
+                        <th scope="row">Support Email</th>
+                        <td>
+                            <a href="mailto:{{ object.support_email }}">
+                                {{ object.support_email }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        {% if object.comments %}
+        <div class="card mt-3">
+            <h5 class="card-header">Comments</h5>
+            <div class="card-body">
+                {{ object.comments|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-6">
+        <!-- Statistics -->
+        <div class="card">
+            <h5 class="card-header">Statistics</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Total Numbers</th>
+                        <td>
+                            <span class="badge bg-primary">{{ object.numbers_count }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Active Numbers</th>
+                        <td>
+                            <span class="badge bg-success">
+                                {{ object.phone_numbers.filter.status='active'|length }}
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Phone Numbers -->
+{% if object.phone_numbers.exists %}
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <h5 class="card-header">
+                Phone Numbers
+                <span class="badge bg-secondary float-end">{{ object.phone_numbers.count }}</span>
+            </h5>
+            <div class="card-body">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Number</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Assigned To</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for number in object.phone_numbers.all %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'plugins:netbox_phonebox:phonenumber' pk=number.pk %}">
+                                    {{ number.formatted_international }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ number.get_type_display }}</span>
+                            </td>
+                            <td>
+                                {% if number.status == 'active' %}
+                                    <span class="badge bg-success">{{ number.get_status_display }}</span>
+                                {% elif number.status == 'reserved' %}
+                                    <span class="badge bg-warning">{{ number.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{{ number.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ number.assigned_to }}</small>
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ number.click_to_call_url }}" 
+                                   class="btn btn-xs btn-success" 
+                                   title="Call">
+                                    <i class="mdi mdi-phone"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Metadata -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <h5 class="card-header">Metadata</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Created</th>
+                        <td>{{ object.created|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Last Updated</th>
+                        <td>{{ object.last_updated|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    {% if object.tags.all %}
+                    <tr>
+                        <th scope="row">Tags</th>
+                        <td>
+                            {% for tag in object.tags.all %}
+                                <span class="badge" style="background-color: #{{ tag.color }}">{{ tag.name }}</span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

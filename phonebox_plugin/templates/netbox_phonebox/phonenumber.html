@@ -1,0 +1,310 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+
+{% block content %}
+<!-- Action Buttons -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="btn-group float-end" role="group">
+            <!-- Call Button -->
+            <a href="{{ object.click_to_call_url }}" 
+               class="btn btn-success">
+                <i class="mdi mdi-phone"></i> Call
+            </a>
+            
+            <!-- Edit Button -->
+            <a href="{% url 'plugins:netbox_phonebox:phonenumber_edit' pk=object.pk %}" 
+               class="btn btn-warning">
+                <i class="mdi mdi-pencil"></i> Edit
+            </a>
+            
+            <!-- Delete Button -->
+            <a href="{% url 'plugins:netbox_phonebox:phonenumber_delete' pk=object.pk %}" 
+               class="btn btn-danger">
+                <i class="mdi mdi-delete"></i> Delete
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Status Alert -->
+<div class="row mb-3">
+    <div class="col-12">
+        {% if object.status == 'active' %}
+        <div class="alert alert-success" role="alert">
+            <i class="mdi mdi-check-circle"></i>
+            <strong>Active</strong> - This phone number is currently in use.
+        </div>
+        {% elif object.status == 'reserved' %}
+        <div class="alert alert-warning" role="alert">
+            <i class="mdi mdi-alert"></i>
+            <strong>Reserved</strong> - This phone number is reserved for future use.
+        </div>
+        {% else %}
+        <div class="alert alert-danger" role="alert">
+            <i class="mdi mdi-close-circle"></i>
+            <strong>Deprecated</strong> - This phone number is no longer in use.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <!-- Phone Number Details -->
+        <div class="card">
+            <h5 class="card-header">Phone Number Details</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Number</th>
+                        <td>
+                            <h4 class="mb-0">{{ object.formatted_international }}</h4>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Normalized (E.164)</th>
+                        <td><code>{{ object.normalized_number }}</code></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">National Format</th>
+                        <td>{{ object.formatted_national }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">RFC3966 (URI)</th>
+                        <td><code>{{ object.formatted_rfc3966 }}</code></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Country</th>
+                        <td>
+                            {% if object.country_code %}
+                                <span class="fi fi-{{ object.country_code|lower }}"></span>
+                                {{ object.country_code }}
+                            {% else %}
+                                <span class="text-muted">Unknown</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Type</th>
+                        <td>
+                            <span class="badge bg-info">{{ object.get_type_display }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Status</th>
+                        <td>
+                            {% if object.status == 'active' %}
+                                <span class="badge bg-success">{{ object.get_status_display }}</span>
+                            {% elif object.status == 'reserved' %}
+                                <span class="badge bg-warning">{{ object.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ object.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if object.description %}
+                    <tr>
+                        <th scope="row">Description</th>
+                        <td>{{ object.description }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        <!-- Assignment -->
+        <div class="card mt-3">
+            <h5 class="card-header">Assignment</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    {% if object.provider %}
+                    <tr>
+                        <th scope="row">Provider</th>
+                        <td>
+                            <a href="{% url 'plugins:netbox_phonebox:provider' pk=object.provider.pk %}">
+                                {{ object.provider }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    
+                    {% if object.contact %}
+                    <tr>
+                        <th scope="row">Contact</th>
+                        <td>
+                            <i class="mdi mdi-account"></i>
+                            <a href="{{ object.contact.get_absolute_url }}">
+                                {{ object.contact }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    
+                    {% if object.device %}
+                    <tr>
+                        <th scope="row">Device</th>
+                        <td>
+                            <i class="mdi mdi-server"></i>
+                            <a href="{{ object.device.get_absolute_url }}">
+                                {{ object.device }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    
+                    {% if object.virtual_machine %}
+                    <tr>
+                        <th scope="row">Virtual Machine</th>
+                        <td>
+                            <i class="mdi mdi-monitor"></i>
+                            <a href="{{ object.virtual_machine.get_absolute_url }}">
+                                {{ object.virtual_machine }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    
+                    {% if not object.provider and not object.contact and not object.device and not object.virtual_machine %}
+                    <tr>
+                        <td colspan="2" class="text-muted text-center">
+                            <i class="mdi mdi-information-outline"></i>
+                            Not assigned to any object
+                        </td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        {% if object.comments %}
+        <div class="card mt-3">
+            <h5 class="card-header">Comments</h5>
+            <div class="card-body">
+                {{ object.comments|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-6">
+        <!-- Technical Information -->
+        <div class="card">
+            <h5 class="card-header">Technical Information</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Detected Type</th>
+                        <td>{{ object.number_type_description }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Carrier</th>
+                        <td>{{ object.carrier_name }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Location</th>
+                        <td>{{ object.geocoding_description }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Timezone</th>
+                        <td>{{ object.timezone }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card mt-3">
+            <h5 class="card-header">Quick Actions</h5>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ object.click_to_call_url }}" 
+                       class="btn btn-success btn-lg">
+                        <i class="mdi mdi-phone"></i> Call {{ object.formatted_national }}
+                    </a>
+                    
+                    <button class="btn btn-outline-primary" 
+                            onclick="copyToClipboard('{{ object.normalized_number }}')">
+                        <i class="mdi mdi-content-copy"></i> Copy E.164 Format
+                    </button>
+                    
+                    <button class="btn btn-outline-primary" 
+                            onclick="copyToClipboard('{{ object.formatted_international }}')">
+                        <i class="mdi mdi-content-copy"></i> Copy International Format
+                    </button>
+                    
+                    <button class="btn btn-outline-primary" 
+                            onclick="copyToClipboard('{{ object.formatted_national }}')">
+                        <i class="mdi mdi-content-copy"></i> Copy National Format
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Code -->
+        <div class="card mt-3">
+            <h5 class="card-header">QR Code</h5>
+            <div class="card-body text-center">
+                <div id="qrcode"></div>
+                <p class="text-muted mt-2 mb-0">
+                    <small>Scan to add contact</small>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Metadata -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <h5 class="card-header">Metadata</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Created</th>
+                        <td>{{ object.created|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Last Updated</th>
+                        <td>{{ object.last_updated|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    {% if object.tags.all %}
+                    <tr>
+                        <th scope="row">Tags</th>
+                        <td>
+                            {% for tag in object.tags.all %}
+                                <span class="badge" style="background-color: #{{ tag.color }}">{{ tag.name }}</span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+// Copy to clipboard function
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Copied to clipboard: ' + text);
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+    });
+}
+
+// Generate QR Code
+new QRCode(document.getElementById("qrcode"), {
+    text: "{{ object.formatted_rfc3966 }}",
+    width: 200,
+    height: 200,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
+});
+</script>
+{% endblock %}

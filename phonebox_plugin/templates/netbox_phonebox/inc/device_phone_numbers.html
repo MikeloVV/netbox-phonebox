@@ -1,0 +1,50 @@
+{% if phone_numbers %}
+<div class="card">
+    <h5 class="card-header">
+        <i class="mdi mdi-phone"></i> Phone Numbers
+        <span class="badge bg-secondary float-end">{{ phone_numbers.count }}</span>
+    </h5>
+    <div class="card-body">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Number</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for number in phone_numbers %}
+                <tr>
+                    <td>
+                        <a href="{% url 'plugins:netbox_phonebox:phonenumber' pk=number.pk %}">
+                            {{ number.formatted_international }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="badge bg-info">{{ number.get_type_display }}</span>
+                    </td>
+                    <td>
+                        {% if number.status == 'active' %}
+                            <span class="badge bg-success">{{ number.get_status_display }}</span>
+                        {% elif number.status == 'reserved' %}
+                            <span class="badge bg-warning">{{ number.get_status_display }}</span>
+                        {% else %}
+                            <span class="badge bg-danger">{{ number.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ number.click_to_call_url }}" 
+                           class="btn btn-xs btn-success" 
+                           title="Call">
+                            <i class="mdi mdi-phone"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}

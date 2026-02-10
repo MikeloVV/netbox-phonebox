@@ -1,0 +1,45 @@
+{% extends 'generic/object_edit.html' %}
+{% load form_helpers %}
+
+{% block title %}Bulk Import Phone Numbers{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <h5 class="card-header">
+                <i class="mdi mdi-upload"></i> Bulk Import Phone Numbers
+            </h5>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% render_field form.numbers %}
+                    {% render_field form.country_code %}
+                    {% render_field form.type %}
+                    {% render_field form.status %}
+                    {% render_field form.provider %}
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="mdi mdi-information"></i> Instructions</h6>
+                        <p>Enter one phone number per line. Numbers will be validated and normalized automatically.</p>
+                        <p class="mb-0"><strong>Example:</strong></p>
+                        <pre class="mb-0">+79991234567
++74951234567
++12025551234</pre>
+                    </div>
+                    
+                    <div class="text-end">
+                        <a href="{% url 'plugins:netbox_phonebox:phonenumber_list' %}" class="btn btn-secondary">
+                            <i class="mdi mdi-close"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="mdi mdi-upload"></i> Import
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
