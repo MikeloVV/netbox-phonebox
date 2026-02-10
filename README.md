@@ -2,12 +2,6 @@
 
 A Telephone Number Management Plugin for [NetBox](https://github.com/netbox-community/netbox) and more.
 
->The plugin versions 0.0.1b1-0.0.1b4 support NetBox 2.10.x versions.
->
->Latest plugin version 0.0.1b5 supports NetBox 2.11.0+ versions
-
-I described some general considerations behind the plugin development and future plans in my [blog post](https://idebugall.github.io/phonebox-init/).
-
 ### Preview
 
 ![](docs/media/preview_01.png)
