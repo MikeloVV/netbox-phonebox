@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 setup(
-    name='netbox-phonebox',
+    name='phonebox_plugin',
     version='1.1.0',
     description='Phone number management for NetBox',
     url='https://github.com/MikeloVV/netbox-phonebox',
