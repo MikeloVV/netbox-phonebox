@@ -5,8 +5,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.views.generic import TemplateView, FormView, View
 from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
+from datetime import timedelta
 from . import filtersets, forms, models, tables
-from .pbx_utils import make_call, get_pbx_status
+from .pbx_utils import make_call, get_pbx_status, get_active_calls
 import csv
 import io
 
@@ -428,6 +430,8 @@ class PBXServerView(generic.ObjectView):
     
     def get_extra_context(self, request, instance):
         """Add statistics to context"""
+        from django.utils import timezone  # Можно добавить здесь для уверенности
+        
         stats = {
             'extensions': instance.extensions.count(),
             'active_extensions': instance.extensions.filter(enabled=True).count(),
@@ -446,7 +450,6 @@ class PBXServerView(generic.ObjectView):
             'stats': stats,
             'pbx_status': status,
         }
-
 
 class PBXServerEditView(generic.ObjectEditView):
     """Edit view for PBX server"""
