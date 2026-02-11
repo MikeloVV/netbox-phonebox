@@ -439,7 +439,10 @@ class CallLogTable(NetBoxTable):
     tags = columns.TagColumn(
         url_name='plugins:netbox_phonebox:calllog_list'
     )
-    
+     # Переопределяем actions чтобы убрать edit
+    actions = columns.ActionsColumn(
+        actions=('view', 'delete'),  # ← Только view и delete, БЕЗ edit
+    )
     class Meta(NetBoxTable.Meta):
         model = CallLog
         fields = (
