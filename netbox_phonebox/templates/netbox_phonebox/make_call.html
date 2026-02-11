@@ -1,0 +1,46 @@
+{% extends 'generic/object_edit.html' %}
+{% load form_helpers %}
+
+{% block title %}Make Call{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <h5 class="card-header">
+                <i class="mdi mdi-phone"></i> Make Call
+            </h5>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% render_field form.pbx_server %}
+                    {% render_field form.extension %}
+                    {% render_field form.to_number %}
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="mdi mdi-information"></i> How it works</h6>
+                        <ol class="mb-0">
+                            <li>Select the PBX server</li>
+                            <li>Select your extension (your phone)</li>
+                            <li>Enter the number to call</li>
+                            <li>Click "Initiate Call"</li>
+                            <li>Your phone will ring first</li>
+                            <li>When you answer, the call will be connected to the destination</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="text-end">
+                        <a href="{% url 'plugins:netbox_phonebox:extension_list' %}" class="btn btn-secondary">
+                            <i class="mdi mdi-close"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="mdi mdi-phone"></i> Initiate Call
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

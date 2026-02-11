@@ -1,0 +1,291 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <!-- Extension Details -->
+        <div class="card">
+            <h5 class="card-header">Extension Details</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Extension</th>
+                        <td><strong>{{ object.extension }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">PBX Server</th>
+                        <td>
+                            <a href="{% url 'plugins:netbox_phonebox:pbxserver' pk=object.pbx_server.pk %}">
+                                {{ object.pbx_server }}
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Type</th>
+                        <td>
+                            <span class="badge bg-info">{{ object.get_type_display }}</span>
+                        </td>
+                    </tr>
+                    {% if object.contact %}
+                    <tr>
+                        <th scope="row">Contact</th>
+                        <td>
+                            <i class="mdi mdi-account"></i>
+                            <a href="{{ object.contact.get_absolute_url }}">
+                                {{ object.contact }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if object.device %}
+                    <tr>
+                        <th scope="row">Device</th>
+                        <td>
+                            <i class="mdi mdi-phone-classic"></i>
+                            <a href="{{ object.device.get_absolute_url }}">
+                                {{ object.device }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th scope="row">Status</th>
+                        <td>
+                            {% if object.enabled %}
+                                <span class="badge bg-success">Enabled</span>
+                            {% else %}
+                                <span class="badge bg-danger">Disabled</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if object.description %}
+                    <tr>
+                        <th scope="row">Description</th>
+                        <td>{{ object.description }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        {% if object.comments %}
+        <div class="card mt-3">
+            <h5 class="card-header">Comments</h5>
+            <div class="card-body">
+                {{ object.comments|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-6">
+        <!-- Call Statistics -->
+        <div class="card">
+            <h5 class="card-header">Call Statistics</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Phone Numbers</th>
+                        <td>
+                            <span class="badge bg-primary">{{ stats.phone_numbers }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Total Calls</th>
+                        <td>
+                            <span class="badge bg-info">{{ stats.total_calls }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Inbound Calls</th>
+                        <td>
+                            <span class="badge bg-success">{{ stats.inbound_calls }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Outbound Calls</th>
+                        <td>
+                            <span class="badge bg-primary">{{ stats.outbound_calls }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Answered Calls</th>
+                        <td>
+                            <span class="badge bg-success">{{ stats.answered_calls }}</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card mt-3">
+            <h5 class="card-header">Quick Actions</h5>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'plugins:netbox_phonebox:make_call' %}?extension={{ object.pk }}" 
+                       class="btn btn-success btn-lg">
+                        <i class="mdi mdi-phone"></i> Make Call from {{ object.extension }}
+                    </a>
+                    
+                    <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?extension_id={{ object.pk }}" 
+                       class="btn btn-outline-info">
+                        <i class="mdi mdi-phone-log"></i> View Call History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Phone Numbers -->
+{% if object.phone_numbers.exists %}
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <h5 class="card-header">
+                Phone Numbers
+                <span class="badge bg-secondary float-end">{{ object.phone_numbers.count }}</span>
+            </h5>
+            <div class="card-body">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Number</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Country</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for number in object.phone_numbers.all %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'plugins:netbox_phonebox:phonenumber' pk=number.pk %}">
+                                    {{ number.formatted_international }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ number.get_type_display }}</span>
+                            </td>
+                            <td>
+                                {% if number.status == 'active' %}
+                                    <span class="badge bg-success">{{ number.get_status_display }}</span>
+                                {% elif number.status == 'reserved' %}
+                                    <span class="badge bg-warning">{{ number.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{{ number.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ number.country_code }}</td>
+                            <td class="text-end">
+                                <a href="{{ number.click_to_call_url }}" 
+                                   class="btn btn-xs btn-success">
+                                    <i class="mdi mdi-phone"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Calls -->
+{% if recent_calls %}
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <h5 class="card-header">
+                Recent Calls
+                <span class="badge bg-secondary float-end">{{ recent_calls|length }}</span>
+            </h5>
+            <div class="card-body">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Direction</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Status</th>
+                            <th>Time</th>
+                            <th>Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for call in recent_calls %}
+                        <tr>
+                            <td>
+                                {% if call.direction == 'inbound' %}
+                                    <i class="mdi mdi-phone-incoming text-success"></i>
+                                {% elif call.direction == 'outbound' %}
+                                    <i class="mdi mdi-phone-outgoing text-primary"></i>
+                                {% else %}
+                                    <i class="mdi mdi-phone-in-talk text-info"></i>
+                                {% endif %}
+                            </td>
+                            <td>{{ call.caller_number }}</td>
+                            <td>{{ call.called_number }}</td>
+                            <td>
+                                {% if call.status == 'answered' %}
+                                    <span class="badge bg-success">{{ call.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ call.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ call.start_time|date:"Y-m-d H:i:s" }}</small>
+                            </td>
+                            <td>
+                                {% if call.duration > 0 %}
+                                    {{ call.duration_formatted }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Metadata -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <h5 class="card-header">Metadata</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Created</th>
+                        <td>{{ object.created|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Last Updated</th>
+                        <td>{{ object.last_updated|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    {% if object.tags.all %}
+                    <tr>
+                        <th scope="row">Tags</th>
+                        <td>
+                            {% for tag in object.tags.all %}
+                                <span class="badge" style="background-color: #{{ tag.color }}">{{ tag.name }}</span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

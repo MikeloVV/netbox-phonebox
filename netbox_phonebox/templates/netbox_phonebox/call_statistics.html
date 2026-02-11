@@ -1,0 +1,227 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+
+{% block title %}Call Statistics{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1>Call Statistics</h1>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mt-3">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Calls</h5>
+                <h2 class="mb-0">{{ total_calls }}</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Answered Calls</h5>
+                <h2 class="mb-0 text-success">{{ answered_calls }}</h2>
+                <small class="text-muted">{{ answer_rate }}% answer rate</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Inbound Calls</h5>
+                <h2 class="mb-0 text-primary">{{ inbound }}</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Outbound Calls</h5>
+                <h2 class="mb-0 text-info">{{ outbound }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="row mt-3">
+    <div class="col-md-6">
+        <div class="card">
+            <h5 class="card-header">Calls by Direction</h5>
+            <div class="card-body">
+                <canvas id="directionChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <h5 class="card-header">Calls by Status</h5>
+            <div class="card-body">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Extensions -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <h5 class="card-header">Top Extensions by Call Volume</h5>
+            <div class="card-body">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Extension</th>
+                            <th>PBX Server</th>
+                            <th>Assigned To</th>
+                            <th>Total Calls</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ext in top_extensions %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'plugins:netbox_phonebox:extension' pk=ext.pk %}">
+                                    {{ ext.extension }}
+                                </a>
+                            </td>
+                            <td>
+                                <a href="{% url 'plugins:netbox_phonebox:pbxserver' pk=ext.pbx_server.pk %}">
+                                    {{ ext.pbx_server }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if ext.contact %}
+                                    {{ ext.contact }}
+                                {% elif ext.device %}
+                                    {{ ext.device }}
+                                {% else %}
+                                    <span class="text-muted">Unassigned</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">{{ ext.call_count }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Calls -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <h5 class="card-header">Recent Calls</h5>
+            <div class="card-body">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Direction</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Status</th>
+                            <th>Time</th>
+                            <th>Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for call in recent_calls %}
+                        <tr>
+                            <td>
+                                {% if call.direction == 'inbound' %}
+                                    <i class="mdi mdi-phone-incoming text-success"></i>
+                                {% elif call.direction == 'outbound' %}
+                                    <i class="mdi mdi-phone-outgoing text-primary"></i>
+                                {% else %}
+                                    <i class="mdi mdi-phone-in-talk text-info"></i>
+                                {% endif %}
+                            </td>
+                            <td>{{ call.caller_number }}</td>
+                            <td>{{ call.called_number }}</td>
+                            <td>
+                                {% if call.status == 'answered' %}
+                                    <span class="badge bg-success">{{ call.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ call.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ call.start_time|date:"Y-m-d H:i:s" }}</small>
+                            </td>
+                            <td>
+                                {% if call.duration > 0 %}
+                                    {{ call.duration_formatted }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Direction Chart
+const directionCtx = document.getElementById('directionChart').getContext('2d');
+new Chart(directionCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Inbound', 'Outbound', 'Internal'],
+        datasets: [{
+            data: [{{ inbound }}, {{ outbound }}, {{ internal }}],
+            backgroundColor: [
+                'rgba(40, 167, 69, 0.8)',
+                'rgba(0, 123, 255, 0.8)',
+                'rgba(23, 162, 184, 0.8)'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true
+    }
+});
+
+// Status Chart
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+new Chart(statusCtx, {
+    type: 'bar',
+    data: {
+        labels: [{% for stat in status_stats %}'{{ stat.status }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Calls',
+            data: [{% for stat in status_stats %}{{ stat.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: 'rgba(0, 123, 255, 0.8)'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

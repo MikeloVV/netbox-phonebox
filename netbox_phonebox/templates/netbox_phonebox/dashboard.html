@@ -1,187 +1,180 @@
 {% extends 'base/layout.html' %}
 {% load helpers %}
 
-{% block title %}Phone Numbers Dashboard{% endblock %}
+{% block title %}PhoneBox Dashboard{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h1>
-            <i class="mdi mdi-phone"></i> Phone Numbers Dashboard
-        </h1>
+        <h1>PhoneBox Dashboard</h1>
     </div>
 </div>
 
-<!-- Statistics Cards -->
-<div class="row mb-4">
+<!-- Phone Numbers Summary -->
+<div class="row mt-3">
     <div class="col-md-3">
         <div class="card">
-            <div class="card-body text-center">
-                <h2 class="text-primary">{{ total }}</h2>
-                <p class="text-muted mb-0">Total Numbers</p>
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Numbers</h5>
+                <h2 class="mb-0">{{ total }}</h2>
             </div>
         </div>
     </div>
+    
     <div class="col-md-3">
         <div class="card">
-            <div class="card-body text-center">
-                <h2 class="text-success">{{ active }}</h2>
-                <p class="text-muted mb-0">Active</p>
+            <div class="card-body">
+                <h5 class="card-title text-muted">Active</h5>
+                <h2 class="mb-0 text-success">{{ active }}</h2>
             </div>
         </div>
     </div>
+    
     <div class="col-md-3">
         <div class="card">
-            <div class="card-body text-center">
-                <h2 class="text-warning">{{ reserved }}</h2>
-                <p class="text-muted mb-0">Reserved</p>
+            <div class="card-body">
+                <h5 class="card-title text-muted">Reserved</h5>
+                <h2 class="mb-0 text-warning">{{ reserved }}</h2>
             </div>
         </div>
     </div>
+    
     <div class="col-md-3">
         <div class="card">
-            <div class="card-body text-center">
-                <h2 class="text-danger">{{ deprecated }}</h2>
-                <p class="text-muted mb-0">Deprecated</p>
+            <div class="card-body">
+                <h5 class="card-title text-muted">Unassigned</h5>
+                <h2 class="mb-0 text-info">{{ unassigned }}</h2>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row mb-4">
+<!-- PBX Summary -->
+<div class="row mt-3">
+    <div class="col-12">
+        <h3>PBX Infrastructure</h3>
+    </div>
+</div>
+
+<div class="row mt-2">
     <div class="col-md-3">
         <div class="card">
-            <div class="card-body text-center">
-                <h2 class="text-info">{{ providers_count }}</h2>
-                <p class="text-muted mb-0">Providers</p>
+            <div class="card-body">
+                <h5 class="card-title text-muted">PBX Servers</h5>
+                <h2 class="mb-0">{{ pbx_servers_count }}</h2>
+                <small class="text-success">{{ pbx_servers_online }} online</small>
             </div>
         </div>
     </div>
+    
     <div class="col-md-3">
         <div class="card">
-            <div class="card-body text-center">
-                <h2 class="text-secondary">{{ unassigned }}</h2>
-                <p class="text-muted mb-0">Unassigned</p>
+            <div class="card-body">
+                <h5 class="card-title text-muted">Extensions</h5>
+                <h2 class="mb-0">{{ extensions_count }}</h2>
+                <small class="text-success">{{ active_extensions }} active</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">SIP Trunks</h5>
+                <h2 class="mb-0">{{ trunks_count }}</h2>
+                <small class="text-success">{{ active_trunks }} active</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Providers</h5>
+                <h2 class="mb-0">{{ providers_count }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Call Statistics -->
+<div class="row mt-3">
+    <div class="col-12">
+        <h3>Call Statistics</h3>
+    </div>
+</div>
+
+<div class="row mt-2">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Calls</h5>
+                <h2 class="mb-0">{{ total_calls }}</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Calls Today</h5>
+                <h2 class="mb-0 text-primary">{{ calls_today }}</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">This Week</h5>
+                <h2 class="mb-0 text-info">{{ calls_this_week }}</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Answer Rate</h5>
+                <h2 class="mb-0 text-success">{{ answer_rate }}%</h2>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Charts -->
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <h5 class="card-header">Numbers by Type</h5>
-            <div class="card-body">
-                <canvas id="typeChart" height="200"></canvas>
-            </div>
-        </div>
-    </div>
+<div class="row mt-3">
     <div class="col-md-6">
         <div class="card">
             <h5 class="card-header">Numbers by Provider</h5>
             <div class="card-body">
-                <canvas id="providerChart" height="200"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Statistics Tables -->
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <h5 class="card-header">
-                Top Providers
-                <span class="badge bg-secondary float-end">{{ provider_stats|length }}</span>
-            </h5>
-            <div class="card-body">
-                {% if provider_stats %}
-                <table class="table table-sm table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Provider</th>
-                            <th class="text-end">Numbers</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for stat in provider_stats %}
-                        <tr>
-                            <td>
-                                <a href="{% url 'plugins:netbox_phonebox:telephonyprovider' pk=stat.provider__id %}">
-                                    {{ stat.provider__name }}
-                                </a>
-                            </td>
-                            <td class="text-end">
-                                <span class="badge bg-primary">{{ stat.count }}</span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <p class="text-muted mb-0">No providers with assigned numbers</p>
-                {% endif %}
+                <canvas id="providerChart"></canvas>
             </div>
         </div>
     </div>
     
     <div class="col-md-6">
         <div class="card">
-            <h5 class="card-header">
-                Numbers by Country
-                <span class="badge bg-secondary float-end">{{ country_stats|length }}</span>
-            </h5>
+            <h5 class="card-header">Numbers by Type</h5>
             <div class="card-body">
-                {% if country_stats %}
-                <table class="table table-sm table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Country</th>
-                            <th class="text-end">Numbers</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for stat in country_stats %}
-                        <tr>
-                            <td>
-                                <span class="fi fi-{{ stat.country_code|lower }}"></span>
-                                {{ stat.country_code }}
-                            </td>
-                            <td class="text-end">
-                                <span class="badge bg-primary">{{ stat.count }}</span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <p class="text-muted mb-0">No country data available</p>
-                {% endif %}
+                <canvas id="typeChart"></canvas>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Recent Numbers -->
-<div class="row">
-    <div class="col-12">
+<!-- Recent Activity -->
+<div class="row mt-3">
+    <div class="col-md-6">
         <div class="card">
-            <h5 class="card-header">
-                Recently Added Numbers
-                <span class="badge bg-secondary float-end">{{ recent_numbers|length }}</span>
-            </h5>
+            <h5 class="card-header">Recent Phone Numbers</h5>
             <div class="card-body">
-                {% if recent_numbers %}
                 <table class="table table-sm table-hover mb-0">
                     <thead>
                         <tr>
                             <th>Number</th>
                             <th>Type</th>
                             <th>Status</th>
-                            <th>Provider</th>
-                            <th>Assigned To</th>
-                            <th>Created</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -204,36 +197,110 @@
                                     <span class="badge bg-danger">{{ number.get_status_display }}</span>
                                 {% endif %}
                             </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <h5 class="card-header">Recent Calls</h5>
+            <div class="card-body">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Status</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for call in recent_calls %}
+                        <tr>
+                            <td>{{ call.caller_number }}</td>
+                            <td>{{ call.called_number }}</td>
                             <td>
-                                {% if number.provider %}
-                                    <a href="{% url 'plugins:netbox_phonebox:telephonyprovider' pk=number.provider.pk %}">
-                                        {{ number.provider }}
-                                    </a>
+                                {% if call.status == 'answered' %}
+                                    <span class="badge bg-success">{{ call.get_status_display }}</span>
                                 {% else %}
-                                    <span class="text-muted">—</span>
+                                    <span class="badge bg-warning">{{ call.get_status_display }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <small class="text-muted">{{ number.assigned_to }}</small>
-                            </td>
-                            <td>
-                                <small class="text-muted">{{ number.created|date:"Y-m-d H:i" }}</small>
+                                <small>{{ call.start_time|date:"H:i" }}</small>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-                {% else %}
-                <p class="text-muted mb-0">No phone numbers yet</p>
-                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Links -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <h5 class="card-header">Quick Links</h5>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <a href="{% url 'plugins:netbox_phonebox:phonenumber_add' %}" class="btn btn-primary w-100 mb-2">
+                            <i class="mdi mdi-plus"></i> Add Phone Number
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'plugins:netbox_phonebox:extension_add' %}" class="btn btn-success w-100 mb-2">
+                            <i class="mdi mdi-plus"></i> Add Extension
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'plugins:netbox_phonebox:make_call' %}" class="btn btn-info w-100 mb-2">
+                            <i class="mdi mdi-phone"></i> Make Call
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'plugins:netbox_phonebox:call_statistics' %}" class="btn btn-secondary w-100 mb-2">
+                            <i class="mdi mdi-chart-bar"></i> Call Statistics
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+// Provider Chart
+const providerCtx = document.getElementById('providerChart').getContext('2d');
+new Chart(providerCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ provider_chart_labels|safe }},
+        datasets: [{
+            label: 'Phone Numbers',
+            data: {{ provider_chart_data|safe }},
+            backgroundColor: 'rgba(0, 123, 255, 0.8)'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
 // Type Chart
 const typeCtx = document.getElementById('typeChart').getContext('2d');
 new Chart(typeCtx, {
@@ -243,54 +310,18 @@ new Chart(typeCtx, {
         datasets: [{
             data: {{ type_chart_data|safe }},
             backgroundColor: [
-                '#0d6efd',
-                '#6610f2',
-                '#6f42c1',
-                '#d63384',
-                '#dc3545',
-                '#fd7e14',
+                'rgba(0, 123, 255, 0.8)',
+                'rgba(40, 167, 69, 0.8)',
+                'rgba(255, 193, 7, 0.8)',
+                'rgba(220, 53, 69, 0.8)',
+                'rgba(23, 162, 184, 0.8)',
+                'rgba(108, 117, 125, 0.8)'
             ]
         }]
     },
     options: {
         responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom'
-            }
-        }
-    }
-});
-
-// Provider Chart
-const providerCtx = document.getElementById('providerChart').getContext('2d');
-new Chart(providerCtx, {
-    type: 'bar',
-    data: {
-        labels: {{ provider_chart_labels|safe }},
-        datasets: [{
-            label: 'Numbers',
-            data: {{ provider_chart_data|safe }},
-            backgroundColor: '#0d6efd'
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    stepSize: 1
-                }
-            }
-        }
+        maintainAspectRatio: true
     }
 });
 </script>

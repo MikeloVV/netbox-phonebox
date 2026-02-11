@@ -1,6 +1,7 @@
 from django.db import models
 from django.urls import reverse
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from netbox.models import NetBoxModel
 from dcim.models import Device
 from virtualization.models import VirtualMachine
@@ -59,6 +60,403 @@ class TelephonyProvider(NetBoxModel):
     def numbers_count(self):
         """Count of phone numbers"""
         return self.phone_numbers.count()
+    
+    @property
+    def active_numbers_count(self):
+        """Count of active phone numbers"""
+        return self.phone_numbers.filter(status='active').count()
+    
+    @property
+    def reserved_numbers_count(self):
+        """Count of reserved phone numbers"""
+        return self.phone_numbers.filter(status='reserved').count()
+    
+    @property
+    def deprecated_numbers_count(self):
+        """Count of deprecated phone numbers"""
+        return self.phone_numbers.filter(status='deprecated').count()
+
+
+class PBXServer(NetBoxModel):
+    """PBX Server (Asterisk/FreePBX)"""
+    
+    TYPE_CHOICES = [
+        ('asterisk', 'Asterisk'),
+        ('freepbx', 'FreePBX'),
+        ('3cx', '3CX'),
+        ('other', 'Other'),
+    ]
+    
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text='PBX server name'
+    )
+    
+    type = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default='asterisk',
+        help_text='PBX type'
+    )
+    
+    hostname = models.CharField(
+        max_length=255,
+        help_text='PBX hostname or IP address'
+    )
+    
+    ami_port = models.IntegerField(
+        default=5038,
+        help_text='AMI port (default: 5038)'
+    )
+    
+    ami_username = models.CharField(
+        max_length=100,
+        help_text='AMI username'
+    )
+    
+    ami_secret = models.CharField(
+        max_length=255,
+        help_text='AMI secret/password'
+    )
+    
+    web_url = models.URLField(
+        blank=True,
+        help_text='Web interface URL'
+    )
+    
+    enabled = models.BooleanField(
+        default=True,
+        help_text='Enable this PBX server'
+    )
+    
+    description = models.CharField(
+        max_length=200,
+        blank=True
+    )
+    
+    comments = models.TextField(
+        blank=True
+    )
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'PBX Server'
+        verbose_name_plural = 'PBX Servers'
+    
+    def __str__(self):
+        return self.name
+    
+    def get_absolute_url(self):
+        return reverse('plugins:netbox_phonebox:pbxserver', args=[self.pk])
+    
+    @property
+    def connection_string(self):
+        """Get AMI connection string"""
+        return f"{self.hostname}:{self.ami_port}"
+
+
+class SIPTrunk(NetBoxModel):
+    """SIP Trunk configuration"""
+    
+    TYPE_CHOICES = [
+        ('register', 'Register'),
+        ('peer', 'Peer'),
+        ('friend', 'Friend'),
+    ]
+    
+    TRANSPORT_CHOICES = [
+        ('udp', 'UDP'),
+        ('tcp', 'TCP'),
+        ('tls', 'TLS'),
+        ('ws', 'WebSocket'),
+        ('wss', 'WebSocket Secure'),
+    ]
+    
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text='Trunk name'
+    )
+    
+    pbx_server = models.ForeignKey(
+        PBXServer,
+        on_delete=models.CASCADE,
+        related_name='sip_trunks',
+        help_text='PBX server'
+    )
+    
+    provider = models.ForeignKey(
+        TelephonyProvider,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sip_trunks',
+        help_text='Service provider'
+    )
+    
+    type = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default='peer',
+        help_text='SIP trunk type'
+    )
+    
+    host = models.CharField(
+        max_length=255,
+        help_text='SIP server hostname or IP'
+    )
+    
+    port = models.IntegerField(
+        default=5060,
+        help_text='SIP port (default: 5060)'
+    )
+    
+    transport = models.CharField(
+        max_length=10,
+        choices=TRANSPORT_CHOICES,
+        default='udp',
+        help_text='Transport protocol'
+    )
+    
+    username = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='SIP username'
+    )
+    
+    secret = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='SIP password'
+    )
+    
+    context = models.CharField(
+        max_length=100,
+        default='from-trunk',
+        help_text='Asterisk context'
+    )
+    
+    enabled = models.BooleanField(
+        default=True,
+        help_text='Enable this trunk'
+    )
+    
+    description = models.CharField(
+        max_length=200,
+        blank=True
+    )
+    
+    comments = models.TextField(
+        blank=True
+    )
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'SIP Trunk'
+        verbose_name_plural = 'SIP Trunks'
+    
+    def __str__(self):
+        return self.name
+    
+    def get_absolute_url(self):
+        return reverse('plugins:netbox_phonebox:siptrunk', args=[self.pk])
+
+
+class Extension(NetBoxModel):
+    """SIP Extension"""
+    
+    TYPE_CHOICES = [
+        ('sip', 'SIP'),
+        ('pjsip', 'PJSIP'),
+        ('iax2', 'IAX2'),
+    ]
+    
+    extension = models.CharField(
+        max_length=20,
+        help_text='Extension number'
+    )
+    
+    pbx_server = models.ForeignKey(
+        PBXServer,
+        on_delete=models.CASCADE,
+        related_name='extensions',
+        help_text='PBX server'
+    )
+    
+    type = models.CharField(
+        max_length=10,
+        choices=TYPE_CHOICES,
+        default='pjsip',
+        help_text='Extension type'
+    )
+    
+    contact = models.ForeignKey(
+        Contact,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='extensions',
+        help_text='Associated contact'
+    )
+    
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='extensions',
+        help_text='Associated device (IP Phone)'
+    )
+    
+    secret = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='SIP secret/password'
+    )
+    
+    enabled = models.BooleanField(
+        default=True,
+        help_text='Enable this extension'
+    )
+    
+    description = models.CharField(
+        max_length=200,
+        blank=True
+    )
+    
+    comments = models.TextField(
+        blank=True
+    )
+    
+    class Meta:
+        ordering = ['extension']
+        unique_together = ['extension', 'pbx_server']
+        verbose_name = 'Extension'
+        verbose_name_plural = 'Extensions'
+    
+    def __str__(self):
+        return f"{self.extension} ({self.pbx_server})"
+    
+    def get_absolute_url(self):
+        return reverse('plugins:netbox_phonebox:extension', args=[self.pk])
+
+
+class CallLog(NetBoxModel):
+    """Call history log"""
+    
+    DIRECTION_CHOICES = [
+        ('inbound', 'Inbound'),
+        ('outbound', 'Outbound'),
+        ('internal', 'Internal'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('answered', 'Answered'),
+        ('no_answer', 'No Answer'),
+        ('busy', 'Busy'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    call_id = models.CharField(
+        max_length=255,
+        unique=True,
+        help_text='Unique call ID from PBX'
+    )
+    
+    pbx_server = models.ForeignKey(
+        PBXServer,
+        on_delete=models.CASCADE,
+        related_name='call_logs',
+        help_text='PBX server'
+    )
+    
+    direction = models.CharField(
+        max_length=20,
+        choices=DIRECTION_CHOICES,
+        help_text='Call direction'
+    )
+    
+    caller_number = models.CharField(
+        max_length=50,
+        help_text='Caller phone number'
+    )
+    
+    called_number = models.CharField(
+        max_length=50,
+        help_text='Called phone number'
+    )
+    
+    extension = models.ForeignKey(
+        Extension,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='call_logs',
+        help_text='Extension involved'
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        help_text='Call status'
+    )
+    
+    start_time = models.DateTimeField(
+        help_text='Call start time'
+    )
+    
+    answer_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Call answer time'
+    )
+    
+    end_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Call end time'
+    )
+    
+    duration = models.IntegerField(
+        default=0,
+        help_text='Call duration in seconds'
+    )
+    
+    recording_url = models.URLField(
+        blank=True,
+        help_text='Call recording URL'
+    )
+    
+    comments = models.TextField(
+        blank=True
+    )
+    
+    class Meta:
+        ordering = ['-start_time']
+        verbose_name = 'Call Log'
+        verbose_name_plural = 'Call Logs'
+        indexes = [
+            models.Index(fields=['-start_time']),
+            models.Index(fields=['caller_number']),
+            models.Index(fields=['called_number']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        return f"{self.caller_number} → {self.called_number} ({self.start_time})"
+    
+    def get_absolute_url(self):
+        return reverse('plugins:netbox_phonebox:calllog', args=[self.pk])
+    
+    @property
+    def duration_formatted(self):
+        """Format duration as HH:MM:SS"""
+        hours = self.duration // 3600
+        minutes = (self.duration % 3600) // 60
+        seconds = self.duration % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
 class PhoneNumber(NetBoxModel):
@@ -112,12 +510,21 @@ class PhoneNumber(NetBoxModel):
     )
     
     provider = models.ForeignKey(
-        TelephonyProvider,  # Изменено
+        TelephonyProvider,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='phone_numbers',
         help_text='Service provider'
+    )
+    
+    extension = models.ForeignKey(
+        Extension,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='phone_numbers',
+        help_text='Associated extension'
     )
     
     contact = models.ForeignKey(
@@ -269,6 +676,9 @@ class PhoneNumber(NetBoxModel):
     @property
     def click_to_call_url(self):
         """Generate click-to-call URL"""
+        if self.extension and self.extension.pbx_server:
+            # Генерируем URL для звонка через PBX
+            return reverse('plugins:netbox_phonebox:make_call') + f'?number={self.normalized_number}&extension={self.extension.extension}'
         return self.formatted_rfc3966
     
     @property
@@ -339,3 +749,19 @@ class PhoneNumber(NetBoxModel):
         elif self.virtual_machine:
             return f"VM: {self.virtual_machine}"
         return "Unassigned"
+    
+    @property
+    def call_count(self):
+        """Get total call count"""
+        from django.db.models import Q
+        return CallLog.objects.filter(
+            Q(caller_number=self.normalized_number) | Q(called_number=self.normalized_number)
+        ).count()
+    
+    @property
+    def last_call(self):
+        """Get last call"""
+        from django.db.models import Q
+        return CallLog.objects.filter(
+            Q(caller_number=self.normalized_number) | Q(called_number=self.normalized_number)
+        ).order_by('-start_time').first()
