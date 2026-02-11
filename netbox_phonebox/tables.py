@@ -1,6 +1,5 @@
 import django_tables2 as tables
 from netbox.tables import NetBoxTable, columns
-from django.utils.html import format_html
 from .models import PhoneNumber, Provider
 
 
@@ -24,7 +23,6 @@ class PhoneNumberTable(NetBoxTable):
     country = tables.TemplateColumn(
         template_code='''
         {% if record.country_code %}
-            <span class="fi fi-{{ record.country_code|lower }}"></span>
             {{ record.country_code }}
         {% else %}
             <span class="text-muted">—</span>
@@ -54,21 +52,6 @@ class PhoneNumberTable(NetBoxTable):
     provider = tables.Column(
         linkify=True,
         verbose_name='Provider'
-    )
-    
-    contact = tables.Column(
-        linkify=True,
-        verbose_name='Contact'
-    )
-    
-    device = tables.Column(
-        linkify=True,
-        verbose_name='Device'
-    )
-    
-    virtual_machine = tables.Column(
-        linkify=True,
-        verbose_name='VM'
     )
     
     assigned_to = tables.TemplateColumn(
