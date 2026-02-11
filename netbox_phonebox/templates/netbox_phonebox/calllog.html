@@ -142,30 +142,30 @@
         </div>
         {% endif %}
 
-        <!-- Quick Actions -->
-        <div class="card mt-3">
-            <h5 class="card-header">Quick Actions</h5>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    {% if object.extension %}
-                    <a href="{% url 'plugins:netbox_phonebox:make_call' %}?extension={{ object.extension.pk }}&number={{ object.caller_number }}" 
-                       class="btn btn-success">
-                        <i class="mdi mdi-phone"></i> Call Back
-                    </a>
-                    {% endif %}
-                    
-                    <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?caller_number={{ object.caller_number }}" 
-                       class="btn btn-outline-info">
-                        <i class="mdi mdi-phone-log"></i> View Calls from {{ object.caller_number }}
-                    </a>
-                    
-                    <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?called_number={{ object.called_number }}" 
-                       class="btn btn-outline-info">
-                        <i class="mdi mdi-phone-log"></i> View Calls to {{ object.called_number }}
-                    </a>
-                </div>
-            </div>
+       <!-- Quick Actions -->
+<div class="card mt-3">
+    <h5 class="card-header">Quick Actions</h5>
+    <div class="card-body">
+        <div class="d-grid gap-2">
+            {% if object.extension %}
+            <a href="{% url 'plugins:netbox_phonebox:make_call' %}?extension={{ object.extension.pk }}&number={{ object.caller_number }}" 
+               class="btn btn-success">
+                <i class="mdi mdi-phone"></i> Call Back
+            </a>
+            {% endif %}
+            
+            <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?caller_number={{ object.caller_number }}" 
+               class="btn btn-outline-info">
+                <i class="mdi mdi-phone-log"></i> View Calls from {{ object.caller_number }}
+            </a>
+            
+            <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?called_number={{ object.called_number }}" 
+               class="btn btn-outline-info">
+                <i class="mdi mdi-phone-log"></i> View Calls to {{ object.called_number }}
+            </a>
         </div>
+    </div>
+</div>
     </div>
 </div>
 

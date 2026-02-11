@@ -119,22 +119,20 @@
             </div>
         </div>
 
-        <!-- Quick Actions -->
-        <div class="card mt-3">
-            <h5 class="card-header">Quick Actions</h5>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="{% url 'plugins:netbox_phonebox:make_call' %}?extension={{ object.pk }}" 
-                       class="btn btn-success btn-lg">
-                        <i class="mdi mdi-phone"></i> Make Call from {{ object.extension }}
-                    </a>
-                    
-                    <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?extension_id={{ object.pk }}" 
-                       class="btn btn-outline-info">
-                        <i class="mdi mdi-phone-log"></i> View Call History
-                    </a>
-                </div>
-            </div>
+<!-- Quick Actions -->
+<div class="card mt-3">
+    <h5 class="card-header">Quick Actions</h5>
+    <div class="card-body">
+        <div class="d-grid gap-2">
+            <a href="{% url 'plugins:netbox_phonebox:make_call' %}?extension={{ object.pk }}" 
+               class="btn btn-success btn-lg">
+                <i class="mdi mdi-phone"></i> Make Call from {{ object.extension }}
+            </a>
+            
+            <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?extension_id={{ object.pk }}" 
+               class="btn btn-outline-info">
+                <i class="mdi mdi-phone-log"></i> View Call History
+            </a>
         </div>
     </div>
 </div>
