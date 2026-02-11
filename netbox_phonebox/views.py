@@ -444,6 +444,7 @@ class PBXServerView(generic.ObjectView):
         }
         
         # Get PBX status
+        from .pbx_utils import get_pbx_status
         status = get_pbx_status(instance)
         
         return {

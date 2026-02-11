@@ -3,6 +3,9 @@ from .models import PBXServer, Extension, PhoneNumber, CallLog
 from .asterisk_ami import AsteriskAMI
 from .grandstream_ami import GrandstreamAMI
 from django.utils import timezone
+import logging
+
+logger = logging.getLogger('netbox_phonebox.pbx_utils')
 
 
 def get_ami_client(pbx_server: PBXServer):
@@ -15,6 +18,8 @@ def get_ami_client(pbx_server: PBXServer):
     Returns:
         AMI client instance (AsteriskAMI or GrandstreamAMI)
     """
+    logger.info(f"Creating AMI client for {pbx_server.name} (type: {pbx_server.type})")
+    
     if pbx_server.type == 'grandstream_ucm':
         return GrandstreamAMI(
             host=pbx_server.hostname,
@@ -32,6 +37,66 @@ def get_ami_client(pbx_server: PBXServer):
         )
 
 
+def get_pbx_status(pbx_server: PBXServer) -> Dict[str, Any]:
+    """
+    Get PBX server status
+    
+    Args:
+        pbx_server: PBX server to check
+    
+    Returns:
+        Dict with status information
+    """
+    logger.info(f"Checking status for PBX: {pbx_server.name}")
+    
+    if not pbx_server.enabled:
+        logger.info(f"PBX {pbx_server.name} is disabled")
+        return {
+            'success': False,
+            'online': False,
+            'pbx_type': pbx_server.get_type_display(),
+            'message': 'PBX is disabled'
+        }
+    
+    try:
+        ami = get_ami_client(pbx_server)
+        
+        logger.info(f"Attempting to connect to {pbx_server.hostname}:{pbx_server.ami_port}")
+        
+        # Подключаемся
+        connected = ami.connect()
+        logger.info(f"Connection result: {connected}")
+        
+        if connected:
+            logger.info(f"Successfully connected to {pbx_server.name}")
+            # Отключаемся
+            ami.disconnect()
+            
+            return {
+                'success': True,
+                'online': True,
+                'pbx_type': pbx_server.get_type_display(),
+                'message': 'PBX is online'
+            }
+        else:
+            logger.warning(f"Failed to connect to {pbx_server.name}")
+            return {
+                'success': False,
+                'online': False,
+                'pbx_type': pbx_server.get_type_display(),
+                'message': 'Failed to connect to PBX'
+            }
+            
+    except Exception as e:
+        logger.error(f"Error checking PBX status: {e}", exc_info=True)
+        return {
+            'success': False,
+            'online': False,
+            'pbx_type': pbx_server.get_type_display() if pbx_server else 'Unknown',
+            'message': f'Error: {str(e)}'
+        }
+
+
 def make_call(pbx_server: PBXServer, from_extension: Extension, 
               to_number: str) -> Dict[str, Any]:
     """
@@ -45,6 +110,8 @@ def make_call(pbx_server: PBXServer, from_extension: Extension,
     Returns:
         Dict with success status and message
     """
+    logger.info(f"Initiating call from {from_extension.extension} to {to_number}")
+    
     try:
         # Normalize destination number
         if not to_number.startswith('+'):
@@ -64,17 +131,29 @@ def make_call(pbx_server: PBXServer, from_extension: Extension,
         else:
             channel = f"{from_extension.type.upper()}/{from_extension.extension}"
         
+        logger.info(f"Using channel: {channel}")
+        
         # Get appropriate AMI client
         ami = get_ami_client(pbx_server)
         
-        # Connect and originate call
-        with ami:
+        # Connect
+        if not ami.connect():
+            logger.error("Failed to connect to PBX")
+            return {
+                'success': False,
+                'message': 'Failed to connect to PBX'
+            }
+        
+        try:
+            # Originate call
             result = ami.originate_call(
                 channel=channel,
                 extension=to_number,
                 caller_id=from_extension.extension,
                 context='from-internal'
             )
+            
+            logger.info(f"Call result: {result}")
             
             if result['success']:
                 # Log the call attempt
@@ -91,46 +170,15 @@ def make_call(pbx_server: PBXServer, from_extension: Extension,
             
             return result
             
+        finally:
+            # Always disconnect
+            ami.disconnect()
+            
     except Exception as e:
+        logger.error(f"Error initiating call: {e}", exc_info=True)
         return {
             'success': False,
             'message': f'Error initiating call: {str(e)}'
-        }
-
-
-def get_pbx_status(pbx_server: PBXServer) -> Dict[str, Any]:
-    """
-    Get PBX server status
-    
-    Args:
-        pbx_server: PBX server to check
-    
-    Returns:
-        Dict with status information
-    """
-    try:
-        ami = get_ami_client(pbx_server)
-        
-        with ami:
-            if ami.connected:
-                return {
-                    'success': True,
-                    'online': True,
-                    'pbx_type': pbx_server.get_type_display(),
-                    'message': 'PBX is online'
-                }
-            else:
-                return {
-                    'success': False,
-                    'online': False,
-                    'message': 'Failed to connect to PBX'
-                }
-                
-    except Exception as e:
-        return {
-            'success': False,
-            'online': False,
-            'message': f'Error: {str(e)}'
         }
 
 
@@ -144,24 +192,30 @@ def get_active_calls(pbx_server: PBXServer) -> Dict[str, Any]:
     Returns:
         Dict with active calls information
     """
+    logger.info(f"Getting active calls for {pbx_server.name}")
+    
     try:
         ami = get_ami_client(pbx_server)
         
-        with ami:
+        if not ami.connect():
+            return {
+                'success': False,
+                'message': 'Failed to connect to PBX'
+            }
+        
+        try:
             if pbx_server.type == 'grandstream_ucm' and hasattr(ami, 'get_active_channels'):
                 result = ami.get_active_channels()
             else:
                 result = ami.get_channel_status('')
             
-            if result['success']:
-                return result
-            else:
-                return {
-                    'success': False,
-                    'message': 'Failed to get active calls'
-                }
+            return result
+            
+        finally:
+            ami.disconnect()
                 
     except Exception as e:
+        logger.error(f"Error getting active calls: {e}", exc_info=True)
         return {
             'success': False,
             'message': f'Error: {str(e)}'
@@ -179,10 +233,18 @@ def get_extension_status(pbx_server: PBXServer, extension: Extension) -> Dict[st
     Returns:
         Dict with extension status
     """
+    logger.info(f"Getting status for extension {extension.extension}")
+    
     try:
         ami = get_ami_client(pbx_server)
         
-        with ami:
+        if not ami.connect():
+            return {
+                'success': False,
+                'message': 'Failed to connect to PBX'
+            }
+        
+        try:
             if pbx_server.type == 'grandstream_ucm' and hasattr(ami, 'get_extension_status'):
                 result = ami.get_extension_status(extension.extension)
             else:
@@ -191,8 +253,12 @@ def get_extension_status(pbx_server: PBXServer, extension: Extension) -> Dict[st
                 result = ami.get_channel_status(channel)
             
             return result
+            
+        finally:
+            ami.disconnect()
                 
     except Exception as e:
+        logger.error(f"Error getting extension status: {e}", exc_info=True)
         return {
             'success': False,
             'message': f'Error: {str(e)}'
@@ -210,10 +276,18 @@ def get_trunk_status(pbx_server: PBXServer, trunk_name: str) -> Dict[str, Any]:
     Returns:
         Dict with trunk status
     """
+    logger.info(f"Getting status for trunk {trunk_name}")
+    
     try:
         ami = get_ami_client(pbx_server)
         
-        with ami:
+        if not ami.connect():
+            return {
+                'success': False,
+                'message': 'Failed to connect to PBX'
+            }
+        
+        try:
             if pbx_server.type == 'grandstream_ucm' and hasattr(ami, 'get_trunk_status'):
                 result = ami.get_trunk_status(trunk_name)
             else:
@@ -224,8 +298,12 @@ def get_trunk_status(pbx_server: PBXServer, trunk_name: str) -> Dict[str, Any]:
                 }
             
             return result
+            
+        finally:
+            ami.disconnect()
                 
     except Exception as e:
+        logger.error(f"Error getting trunk status: {e}", exc_info=True)
         return {
             'success': False,
             'message': f'Error: {str(e)}'
