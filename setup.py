@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name='netbox-phonebox',
-    version='1.1.2',
+    version='1.2.1',
     description='Phone number management for NetBox with E.164 validation',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
