@@ -56,7 +56,7 @@ class PhoneNumberDashboardView(LoginRequiredMixin, TemplateView):
         recent_numbers = models.PhoneNumber.objects.order_by('-created')[:10]
         
         # Статистика провайдеров
-        providers_count = models.Provider.objects.count()
+        providers_count = models.TelephonyProvider.objects.count()  # Изменено
         
         # Номера по провайдерам (для графика)
         provider_chart_data = []
@@ -133,7 +133,6 @@ class PhoneNumberImportView(LoginRequiredMixin, FormView):
         update_existing = form.cleaned_data['update_existing']
         
         try:
-            # Читаем CSV
             decoded_file = csv_file.read().decode('utf-8')
             reader = csv.DictReader(io.StringIO(decoded_file))
             
@@ -147,7 +146,6 @@ class PhoneNumberImportView(LoginRequiredMixin, FormView):
                     if not number:
                         continue
                     
-                    # Подготовка данных
                     data = {
                         'number': number,
                         'type': row.get('type', 'mobile').strip() or 'mobile',
@@ -156,32 +154,27 @@ class PhoneNumberImportView(LoginRequiredMixin, FormView):
                         'description': row.get('description', '').strip(),
                     }
                     
-                    # Провайдер
                     provider_name = row.get('provider', '').strip()
                     if provider_name:
-                        provider, _ = models.Provider.objects.get_or_create(
+                        provider, _ = models.TelephonyProvider.objects.get_or_create(  # Изменено
                             name=provider_name
                         )
                         data['provider'] = provider
                     
-                    # Создаем временный объект для валидации и нормализации
                     temp_phone = models.PhoneNumber(**data)
                     temp_phone.clean()
                     
-                    # Проверяем существование по нормализованному номеру
                     existing = models.PhoneNumber.objects.filter(
                         normalized_number=temp_phone.normalized_number
                     ).first()
                     
                     if existing and update_existing:
-                        # Обновляем существующий
                         for key, value in data.items():
                             setattr(existing, key, value)
                         existing.clean()
                         existing.save()
                         updated += 1
                     elif not existing:
-                        # Создаем новый
                         phone = models.PhoneNumber(**data)
                         phone.clean()
                         phone.save()
@@ -192,7 +185,6 @@ class PhoneNumberImportView(LoginRequiredMixin, FormView):
                 except Exception as e:
                     errors.append(f"Row {row_num}: {str(e)}")
             
-            # Сообщения о результатах
             if created or updated:
                 messages.success(
                     self.request,
@@ -275,11 +267,9 @@ class PhoneNumberExportView(LoginRequiredMixin, View):
     """Export phone numbers to CSV"""
     
     def get(self, request):
-        # Создаем CSV в памяти
         output = io.StringIO()
         writer = csv.writer(output)
         
-        # Заголовки
         writer.writerow([
             'ID',
             'Number',
@@ -297,7 +287,6 @@ class PhoneNumberExportView(LoginRequiredMixin, View):
             'Created',
         ])
         
-        # Данные
         for phone in models.PhoneNumber.objects.all().select_related(
             'provider', 'contact', 'device', 'virtual_machine'
         ):
@@ -318,7 +307,6 @@ class PhoneNumberExportView(LoginRequiredMixin, View):
                 phone.created.strftime('%Y-%m-%d %H:%M:%S'),
             ])
         
-        # Подготовка ответа
         response = HttpResponse(
             output.getvalue(),
             content_type='text/csv'
@@ -328,31 +316,31 @@ class PhoneNumberExportView(LoginRequiredMixin, View):
         return response
 
 
-class ProviderListView(generic.ObjectListView):
-    """List view for providers"""
-    queryset = models.Provider.objects.all()
-    table = tables.ProviderTable
-    filterset = filtersets.ProviderFilterSet
-    filterset_form = forms.ProviderFilterForm
+class TelephonyProviderListView(generic.ObjectListView):  # Изменено
+    """List view for telephony providers"""
+    queryset = models.TelephonyProvider.objects.all()  # Изменено
+    table = tables.TelephonyProviderTable  # Изменено
+    filterset = filtersets.TelephonyProviderFilterSet  # Изменено
+    filterset_form = forms.TelephonyProviderFilterForm  # Изменено
 
 
-class ProviderView(generic.ObjectView):
-    """Detail view for provider"""
-    queryset = models.Provider.objects.all()
+class TelephonyProviderView(generic.ObjectView):  # Изменено
+    """Detail view for telephony provider"""
+    queryset = models.TelephonyProvider.objects.all()  # Изменено
 
 
-class ProviderEditView(generic.ObjectEditView):
-    """Edit view for provider"""
-    queryset = models.Provider.objects.all()
-    form = forms.ProviderForm
+class TelephonyProviderEditView(generic.ObjectEditView):  # Изменено
+    """Edit view for telephony provider"""
+    queryset = models.TelephonyProvider.objects.all()  # Изменено
+    form = forms.TelephonyProviderForm  # Изменено
 
 
-class ProviderDeleteView(generic.ObjectDeleteView):
-    """Delete view for provider"""
-    queryset = models.Provider.objects.all()
+class TelephonyProviderDeleteView(generic.ObjectDeleteView):  # Изменено
+    """Delete view for telephony provider"""
+    queryset = models.TelephonyProvider.objects.all()  # Изменено
 
 
-class ProviderBulkDeleteView(generic.BulkDeleteView):
-    """Bulk delete view for providers"""
-    queryset = models.Provider.objects.all()
-    table = tables.ProviderTable
+class TelephonyProviderBulkDeleteView(generic.BulkDeleteView):  # Изменено
+    """Bulk delete view for telephony providers"""
+    queryset = models.TelephonyProvider.objects.all()  # Изменено
+    table = tables.TelephonyProviderTable  # Изменено

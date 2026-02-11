@@ -9,7 +9,7 @@ import phonenumbers
 from phonenumbers import NumberParseException
 
 
-class Provider(NetBoxModel):
+class TelephonyProvider(NetBoxModel):
     """Telephone service provider"""
     
     name = models.CharField(
@@ -46,12 +46,14 @@ class Provider(NetBoxModel):
     
     class Meta:
         ordering = ['name']
+        verbose_name = 'Telephony Provider'
+        verbose_name_plural = 'Telephony Providers'
     
     def __str__(self):
         return self.name
     
     def get_absolute_url(self):
-        return reverse('plugins:netbox_phonebox:provider', args=[self.pk])
+        return reverse('plugins:netbox_phonebox:telephonyprovider', args=[self.pk])
     
     @property
     def numbers_count(self):
@@ -110,7 +112,7 @@ class PhoneNumber(NetBoxModel):
     )
     
     provider = models.ForeignKey(
-        Provider,
+        TelephonyProvider,  # Изменено
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -157,6 +159,8 @@ class PhoneNumber(NetBoxModel):
     
     class Meta:
         ordering = ['normalized_number']
+        verbose_name = 'Phone Number'
+        verbose_name_plural = 'Phone Numbers'
         indexes = [
             models.Index(fields=['normalized_number']),
             models.Index(fields=['country_code']),
@@ -178,23 +182,19 @@ class PhoneNumber(NetBoxModel):
             raise ValidationError({'number': 'Phone number is required'})
         
         try:
-            # Пытаемся распарсить номер
             region = self.country_code if self.country_code else None
             parsed = phonenumbers.parse(self.number, region)
             
-            # Проверяем валидность
             if not phonenumbers.is_valid_number(parsed):
                 raise ValidationError({
                     'number': f'Invalid phone number format. Please use international format (e.g., +1234567890)'
                 })
             
-            # Нормализуем в E.164
             self.normalized_number = phonenumbers.format_number(
                 parsed,
                 phonenumbers.PhoneNumberFormat.E164
             )
             
-            # Определяем или проверяем страну
             detected_country = phonenumbers.region_code_for_number(parsed)
             
             if not self.country_code:

@@ -4,11 +4,11 @@ from dcim.models import Device
 from virtualization.models import VirtualMachine
 from tenancy.models import Contact
 from utilities.filters import MultiValueCharFilter
-from .models import PhoneNumber, Provider
+from .models import PhoneNumber, TelephonyProvider  # Изменено
 
 
-class ProviderFilterSet(NetBoxModelFilterSet):
-    """FilterSet for Provider model"""
+class TelephonyProviderFilterSet(NetBoxModelFilterSet):  # Изменено
+    """FilterSet for TelephonyProvider model"""
     
     q = django_filters.CharFilter(
         method='search',
@@ -16,7 +16,7 @@ class ProviderFilterSet(NetBoxModelFilterSet):
     )
     
     class Meta:
-        model = Provider
+        model = TelephonyProvider  # Изменено
         fields = ['id', 'name', 'website', 'support_phone', 'support_email']
     
     def search(self, queryset, name, value):
@@ -53,7 +53,7 @@ class PhoneNumberFilterSet(NetBoxModelFilterSet):
     country_code = MultiValueCharFilter()
     
     provider_id = django_filters.ModelMultipleChoiceFilter(
-        queryset=Provider.objects.all(),
+        queryset=TelephonyProvider.objects.all(),  # Изменено
         label='Provider',
     )
     

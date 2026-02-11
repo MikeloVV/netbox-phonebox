@@ -1,6 +1,6 @@
 import django_tables2 as tables
 from netbox.tables import NetBoxTable, columns
-from .models import PhoneNumber, Provider
+from .models import PhoneNumber, TelephonyProvider  # Изменено
 
 
 class PhoneNumberTable(NetBoxTable):
@@ -99,8 +99,8 @@ class PhoneNumberTable(NetBoxTable):
         )
 
 
-class ProviderTable(NetBoxTable):
-    """Table for displaying providers"""
+class TelephonyProviderTable(NetBoxTable):  # Изменено
+    """Table for displaying telephony providers"""
     
     name = tables.Column(
         linkify=True,
@@ -138,11 +138,11 @@ class ProviderTable(NetBoxTable):
     )
     
     tags = columns.TagColumn(
-        url_name='plugins:netbox_phonebox:provider_list'
+        url_name='plugins:netbox_phonebox:telephonyprovider_list'  # Изменено
     )
     
     class Meta(NetBoxTable.Meta):
-        model = Provider
+        model = TelephonyProvider  # Изменено
         fields = (
             'pk', 'name', 'description', 'numbers_count', 'website',
             'support_phone', 'support_email', 'tags', 'created',

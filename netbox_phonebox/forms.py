@@ -4,14 +4,14 @@ from dcim.models import Device
 from virtualization.models import VirtualMachine
 from tenancy.models import Contact
 from utilities.forms.fields import DynamicModelChoiceField, DynamicModelMultipleChoiceField, TagFilterField
-from .models import PhoneNumber, Provider
+from .models import PhoneNumber, TelephonyProvider  # Изменено
 
 
 class PhoneNumberForm(NetBoxModelForm):
     """Form for creating/editing phone numbers"""
     
     provider = DynamicModelChoiceField(
-        queryset=Provider.objects.all(),
+        queryset=TelephonyProvider.objects.all(),  # Изменено
         required=False
     )
     
@@ -59,7 +59,7 @@ class PhoneNumberFilterForm(NetBoxModelFilterSetForm):
     )
     
     provider_id = DynamicModelMultipleChoiceField(
-        queryset=Provider.objects.all(),
+        queryset=TelephonyProvider.objects.all(),  # Изменено
         required=False,
         label='Provider'
     )
@@ -85,21 +85,21 @@ class PhoneNumberFilterForm(NetBoxModelFilterSetForm):
     tag = TagFilterField(model)
 
 
-class ProviderForm(NetBoxModelForm):
-    """Form for creating/editing providers"""
+class TelephonyProviderForm(NetBoxModelForm):  # Изменено
+    """Form for creating/editing telephony providers"""
     
     class Meta:
-        model = Provider
+        model = TelephonyProvider  # Изменено
         fields = [
             'name', 'description', 'website', 'support_phone',
             'support_email', 'comments', 'tags'
         ]
 
 
-class ProviderFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for providers"""
+class TelephonyProviderFilterForm(NetBoxModelFilterSetForm):  # Изменено
+    """Filter form for telephony providers"""
     
-    model = Provider
+    model = TelephonyProvider  # Изменено
     tag = TagFilterField(model)
 
 
@@ -108,7 +108,7 @@ class PhoneNumberImportForm(forms.Form):
     
     csv_file = forms.FileField(
         label='CSV File',
-        help_text='Upload CSV file with columns: number, type, status, country_code, provider, contact, device, description'
+        help_text='Upload CSV file with columns: number, type, status, country_code, provider, description'
     )
     
     update_existing = forms.BooleanField(
@@ -148,7 +148,7 @@ class PhoneNumberBulkImportForm(forms.Form):
     )
     
     provider = DynamicModelChoiceField(
-        queryset=Provider.objects.all(),
+        queryset=TelephonyProvider.objects.all(),  # Изменено
         required=False,
         label='Provider'
     )

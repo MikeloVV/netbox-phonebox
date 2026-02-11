@@ -39,15 +39,15 @@ menu_items = (
         )
     ),
     PluginMenuItem(
-        link='plugins:netbox_phonebox:provider_list',
+        link='plugins:netbox_phonebox:telephonyprovider_list',  # Изменено
         link_text='Providers',
-        permissions=['netbox_phonebox.view_provider'],
+        permissions=['netbox_phonebox.view_telephonyprovider'],  # Изменено
         buttons=(
             PluginMenuButton(
-                link='plugins:netbox_phonebox:provider_add',
+                link='plugins:netbox_phonebox:telephonyprovider_add',  # Изменено
                 title='Add',
                 icon_class='mdi mdi-plus-thick',
-                permissions=['netbox_phonebox.add_provider']
+                permissions=['netbox_phonebox.add_telephonyprovider']  # Изменено
             ),
         )
     ),

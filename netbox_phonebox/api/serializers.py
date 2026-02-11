@@ -1,19 +1,19 @@
 from rest_framework import serializers
 from netbox.api.serializers import NetBoxModelSerializer
-from ..models import PhoneNumber, Provider
+from ..models import PhoneNumber, TelephonyProvider  # Изменено
 
 
-class ProviderSerializer(NetBoxModelSerializer):
-    """Serializer for Provider model"""
+class TelephonyProviderSerializer(NetBoxModelSerializer):  # Изменено
+    """Serializer for TelephonyProvider model"""
     
     url = serializers.HyperlinkedIdentityField(
-        view_name='plugins-api:netbox_phonebox-api:provider-detail'
+        view_name='plugins-api:netbox_phonebox-api:telephonyprovider-detail'  # Изменено
     )
     
     numbers_count = serializers.IntegerField(read_only=True)
     
     class Meta:
-        model = Provider
+        model = TelephonyProvider  # Изменено
         fields = [
             'id', 'url', 'display', 'name', 'description', 'website',
             'support_phone', 'support_email', 'comments', 'tags',
@@ -28,7 +28,7 @@ class PhoneNumberSerializer(NetBoxModelSerializer):
         view_name='plugins-api:netbox_phonebox-api:phonenumber-detail'
     )
     
-    provider = ProviderSerializer(nested=True, required=False, allow_null=True)
+    provider = TelephonyProviderSerializer(nested=True, required=False, allow_null=True)  # Изменено
     
     # Read-only computed fields
     formatted_international = serializers.CharField(read_only=True)
