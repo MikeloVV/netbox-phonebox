@@ -1,12 +1,10 @@
-from rest_framework.routers import DefaultRouter
+from netbox.api.routers import NetBoxRouter
 from . import views
 
+app_name = 'netbox_phonebox'
 
-router = DefaultRouter()
-router.APIRootView = views.PhoneBoxPluginRootView
+router = NetBoxRouter()
+router.register('phone-numbers', views.PhoneNumberViewSet)
+router.register('providers', views.ProviderViewSet)
 
-router.register(r'numbers', views.NumberViewSet)
-router.register(r'voice-circuits', views.VoiceCircuitsViewSet)
-
-app_name = "phonebox_plugin-api"
 urlpatterns = router.urls

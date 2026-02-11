@@ -1,32 +1,20 @@
-from rest_framework.routers import APIRootView
-from .. import filters
-from ..models import Number, VoiceCircuit
-from . import serializers
-from django.conf import settings
-from packaging import version
-
-NETBOX_CURRENT_VERSION = version.parse(settings.VERSION)
-
-if NETBOX_CURRENT_VERSION >= version.parse("3.2"):
-    from netbox.api.viewsets import NetBoxModelViewSet as ModelViewSet
-else:
-    from netbox.api.views import ModelViewSet
+from netbox.api.viewsets import NetBoxModelViewSet
+from .. import filtersets  # Изменено с filters на filtersets
+from ..models import PhoneNumber, Provider
+from .serializers import PhoneNumberSerializer, ProviderSerializer
 
 
-class PhoneBoxPluginRootView(APIRootView):
-    """
-    phonebox_plugin API root view
-    """
-    def get_view_name(self):
-        return 'PhoneBox'
+class PhoneNumberViewSet(NetBoxModelViewSet):
+    """API viewset for PhoneNumber model"""
+    queryset = PhoneNumber.objects.prefetch_related(
+        'provider', 'contact', 'device', 'virtual_machine', 'tags'
+    )
+    serializer_class = PhoneNumberSerializer
+    filterset_class = filtersets.PhoneNumberFilterSet  # Изменено
 
 
-class NumberViewSet(ModelViewSet):
-    queryset = Number.objects.prefetch_related('tenant', 'region', 'tags')
-    serializer_class = serializers.NumberSerializer
-    filterset_class = filters.NumberFilterSet
-
-class VoiceCircuitsViewSet(ModelViewSet):
-    queryset = VoiceCircuit.objects.prefetch_related('tenant', 'region', 'tags')
-    serializer_class = serializers.VoiceCircuitSerializer
-    filterset_class = filters.VoiceCircuitFilterSet
+class ProviderViewSet(NetBoxModelViewSet):
+    """API viewset for Provider model"""
+    queryset = Provider.objects.prefetch_related('tags')
+    serializer_class = ProviderSerializer
+    filterset_class = filtersets.ProviderFilterSet  # Изменено
