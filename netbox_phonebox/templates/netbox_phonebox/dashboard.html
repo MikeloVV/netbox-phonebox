@@ -108,7 +108,7 @@
                         {% for stat in provider_stats %}
                         <tr>
                             <td>
-                                <a href="{% url 'plugins:netbox_phonebox:provider' pk=stat.provider__id %}">
+                                <a href="{% url 'plugins:netbox_phonebox:telephonyprovider' pk=stat.provider__id %}">
                                     {{ stat.provider__name }}
                                 </a>
                             </td>
@@ -206,7 +206,7 @@
                             </td>
                             <td>
                                 {% if number.provider %}
-                                    <a href="{% url 'plugins:netbox_phonebox:provider' pk=number.provider.pk %}">
+                                    <a href="{% url 'plugins:netbox_phonebox:telephonyprovider' pk=number.provider.pk %}">
                                         {{ number.provider }}
                                     </a>
                                 {% else %}

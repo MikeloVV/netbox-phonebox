@@ -84,7 +84,49 @@
                             </span>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row">Reserved Numbers</th>
+                        <td>
+                            <span class="badge bg-warning">
+                                {{ object.phone_numbers.filter.status='reserved'|length }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Deprecated Numbers</th>
+                        <td>
+                            <span class="badge bg-danger">
+                                {{ object.phone_numbers.filter.status='deprecated'|length }}
+                            </span>
+                        </td>
+                    </tr>
                 </table>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card mt-3">
+            <h5 class="card-header">Quick Actions</h5>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if object.website %}
+                    <a href="{{ object.website }}" target="_blank" class="btn btn-outline-primary">
+                        <i class="mdi mdi-open-in-new"></i> Visit Website
+                    </a>
+                    {% endif %}
+                    
+                    {% if object.support_phone %}
+                    <a href="tel:{{ object.support_phone }}" class="btn btn-outline-success">
+                        <i class="mdi mdi-phone"></i> Call Support
+                    </a>
+                    {% endif %}
+                    
+                    {% if object.support_email %}
+                    <a href="mailto:{{ object.support_email }}" class="btn btn-outline-info">
+                        <i class="mdi mdi-email"></i> Email Support
+                    </a>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -107,6 +149,7 @@
                             <th>Type</th>
                             <th>Status</th>
                             <th>Assigned To</th>
+                            <th>Country</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -133,6 +176,13 @@
                             <td>
                                 <small class="text-muted">{{ number.assigned_to }}</small>
                             </td>
+                            <td>
+                                {% if number.country_code %}
+                                    {{ number.country_code }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
                             <td class="text-end">
                                 <a href="{{ number.click_to_call_url }}" 
                                    class="btn btn-xs btn-success" 
@@ -144,6 +194,24 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <h5 class="card-header">Phone Numbers</h5>
+            <div class="card-body">
+                <p class="text-muted mb-0">
+                    <i class="mdi mdi-information-outline"></i>
+                    No phone numbers assigned to this provider yet.
+                </p>
+                <a href="{% url 'plugins:netbox_phonebox:phonenumber_add' %}?provider={{ object.pk }}" 
+                   class="btn btn-primary mt-3">
+                    <i class="mdi mdi-plus-thick"></i> Add Phone Number
+                </a>
             </div>
         </div>
     </div>

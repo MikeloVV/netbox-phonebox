@@ -37,7 +37,7 @@
                     </td>
                     <td>
                         {% if number.provider %}
-                            <a href="{% url 'plugins:netbox_phonebox:provider' pk=number.provider.pk %}">
+                            <a href="{% url 'plugins:netbox_phonebox:telephonyprovider' pk=number.provider.pk %}">
                                 {{ number.provider.name }}
                             </a>
                         {% else %}
