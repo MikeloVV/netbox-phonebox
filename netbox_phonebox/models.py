@@ -7,7 +7,6 @@ from virtualization.models import VirtualMachine
 from tenancy.models import Contact
 import phonenumbers
 from phonenumbers import NumberParseException
-from datetime import datetime
 
 
 class Provider(NetBoxModel):
@@ -180,9 +179,7 @@ class PhoneNumber(NetBoxModel):
         
         try:
             # Пытаемся распарсить номер
-            # Если указан country_code, используем его
             region = self.country_code if self.country_code else None
-            
             parsed = phonenumbers.parse(self.number, region)
             
             # Проверяем валидность
@@ -203,7 +200,6 @@ class PhoneNumber(NetBoxModel):
             if not self.country_code:
                 self.country_code = detected_country
             elif self.country_code != detected_country:
-                # Предупреждение, если указанная страна не совпадает с обнаруженной
                 raise ValidationError({
                     'country_code': f'Country code mismatch. Number appears to be from {detected_country}, but {self.country_code} was specified.'
                 })
@@ -226,7 +222,6 @@ class PhoneNumber(NetBoxModel):
             })
     
     def save(self, *args, **kwargs):
-        # Валидация перед сохранением
         self.full_clean()
         super().save(*args, **kwargs)
     

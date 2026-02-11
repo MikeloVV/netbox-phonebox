@@ -1,9 +1,125 @@
+from netbox.views import generic
+from django.db.models import Count
+from django.shortcuts import redirect, get_object_or_404
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
-from django.shortcuts import redirect
-from django.views.generic import FormView, View
+from django.views.generic import TemplateView, FormView, View
 from django.http import HttpResponse
+from . import filtersets, forms, models, tables
 import csv
 import io
+
+
+class PhoneNumberDashboardView(LoginRequiredMixin, TemplateView):
+    """Dashboard with phone number statistics"""
+    
+    template_name = 'netbox_phonebox/dashboard.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Общая статистика
+        total = models.PhoneNumber.objects.count()
+        active = models.PhoneNumber.objects.filter(status='active').count()
+        reserved = models.PhoneNumber.objects.filter(status='reserved').count()
+        deprecated = models.PhoneNumber.objects.filter(status='deprecated').count()
+        
+        # Статистика по типам
+        type_stats = models.PhoneNumber.objects.values('type').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        # Статистика по провайдерам
+        provider_stats = models.PhoneNumber.objects.filter(
+            provider__isnull=False
+        ).values(
+            'provider__name', 'provider__id'
+        ).annotate(
+            count=Count('id')
+        ).order_by('-count')[:10]
+        
+        # Статистика по странам
+        country_stats = models.PhoneNumber.objects.exclude(
+            country_code=''
+        ).values('country_code').annotate(
+            count=Count('id')
+        ).order_by('-count')[:10]
+        
+        # Неназначенные номера
+        unassigned = models.PhoneNumber.objects.filter(
+            contact__isnull=True,
+            device__isnull=True,
+            virtual_machine__isnull=True
+        ).count()
+        
+        # Недавно добавленные
+        recent_numbers = models.PhoneNumber.objects.order_by('-created')[:10]
+        
+        # Статистика провайдеров
+        providers_count = models.Provider.objects.count()
+        
+        # Номера по провайдерам (для графика)
+        provider_chart_data = []
+        provider_chart_labels = []
+        for stat in provider_stats:
+            provider_chart_labels.append(stat['provider__name'])
+            provider_chart_data.append(stat['count'])
+        
+        # Номера по типам (для графика)
+        type_chart_data = []
+        type_chart_labels = []
+        for stat in type_stats:
+            type_chart_labels.append(dict(models.PhoneNumber.TYPE_CHOICES).get(stat['type'], stat['type']))
+            type_chart_data.append(stat['count'])
+        
+        context.update({
+            'total': total,
+            'active': active,
+            'reserved': reserved,
+            'deprecated': deprecated,
+            'unassigned': unassigned,
+            'providers_count': providers_count,
+            'type_stats': type_stats,
+            'provider_stats': provider_stats,
+            'country_stats': country_stats,
+            'recent_numbers': recent_numbers,
+            'provider_chart_data': provider_chart_data,
+            'provider_chart_labels': provider_chart_labels,
+            'type_chart_data': type_chart_data,
+            'type_chart_labels': type_chart_labels,
+        })
+        
+        return context
+
+
+class PhoneNumberListView(generic.ObjectListView):
+    """List view for phone numbers"""
+    queryset = models.PhoneNumber.objects.all()
+    table = tables.PhoneNumberTable
+    filterset = filtersets.PhoneNumberFilterSet
+    filterset_form = forms.PhoneNumberFilterForm
+
+
+class PhoneNumberView(generic.ObjectView):
+    """Detail view for phone number"""
+    queryset = models.PhoneNumber.objects.all()
+
+
+class PhoneNumberEditView(generic.ObjectEditView):
+    """Edit view for phone number"""
+    queryset = models.PhoneNumber.objects.all()
+    form = forms.PhoneNumberForm
+
+
+class PhoneNumberDeleteView(generic.ObjectDeleteView):
+    """Delete view for phone number"""
+    queryset = models.PhoneNumber.objects.all()
+
+
+class PhoneNumberBulkDeleteView(generic.BulkDeleteView):
+    """Bulk delete view for phone numbers"""
+    queryset = models.PhoneNumber.objects.all()
+    table = tables.PhoneNumberTable
 
 
 class PhoneNumberImportView(LoginRequiredMixin, FormView):
@@ -25,7 +141,7 @@ class PhoneNumberImportView(LoginRequiredMixin, FormView):
             updated = 0
             errors = []
             
-            for row_num, row in enumerate(reader, start=2):  # start=2 т.к. строка 1 - заголовки
+            for row_num, row in enumerate(reader, start=2):
                 try:
                     number = row.get('number', '').strip()
                     if not number:
@@ -50,7 +166,7 @@ class PhoneNumberImportView(LoginRequiredMixin, FormView):
                     
                     # Создаем временный объект для валидации и нормализации
                     temp_phone = models.PhoneNumber(**data)
-                    temp_phone.clean()  # Это нормализует номер
+                    temp_phone.clean()
                     
                     # Проверяем существование по нормализованному номеру
                     existing = models.PhoneNumber.objects.filter(
@@ -71,7 +187,7 @@ class PhoneNumberImportView(LoginRequiredMixin, FormView):
                         phone.save()
                         created += 1
                     else:
-                        errors.append(f"Row {row_num}: Number {number} already exists (use update mode to update)")
+                        errors.append(f"Row {row_num}: Number {number} already exists")
                         
                 except Exception as e:
                     errors.append(f"Row {row_num}: {str(e)}")
@@ -84,7 +200,7 @@ class PhoneNumberImportView(LoginRequiredMixin, FormView):
                 )
             
             if errors:
-                for error in errors[:10]:  # Показываем первые 10 ошибок
+                for error in errors[:10]:
                     messages.warning(self.request, error)
                 
                 if len(errors) > 10:
@@ -210,3 +326,33 @@ class PhoneNumberExportView(LoginRequiredMixin, View):
         response['Content-Disposition'] = 'attachment; filename="phone_numbers.csv"'
         
         return response
+
+
+class ProviderListView(generic.ObjectListView):
+    """List view for providers"""
+    queryset = models.Provider.objects.all()
+    table = tables.ProviderTable
+    filterset = filtersets.ProviderFilterSet
+    filterset_form = forms.ProviderFilterForm
+
+
+class ProviderView(generic.ObjectView):
+    """Detail view for provider"""
+    queryset = models.Provider.objects.all()
+
+
+class ProviderEditView(generic.ObjectEditView):
+    """Edit view for provider"""
+    queryset = models.Provider.objects.all()
+    form = forms.ProviderForm
+
+
+class ProviderDeleteView(generic.ObjectDeleteView):
+    """Delete view for provider"""
+    queryset = models.Provider.objects.all()
+
+
+class ProviderBulkDeleteView(generic.BulkDeleteView):
+    """Bulk delete view for providers"""
+    queryset = models.Provider.objects.all()
+    table = tables.ProviderTable
