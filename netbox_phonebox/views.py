@@ -324,9 +324,22 @@ class TelephonyProviderListView(generic.ObjectListView):  # Изменено
     filterset_form = forms.TelephonyProviderFilterForm  # Изменено
 
 
-class TelephonyProviderView(generic.ObjectView):  # Изменено
+class TelephonyProviderView(generic.ObjectView):
     """Detail view for telephony provider"""
-    queryset = models.TelephonyProvider.objects.all()  # Изменено
+    queryset = models.TelephonyProvider.objects.all()
+    
+    def get_extra_context(self, request, instance):
+        """Add statistics to context"""
+        stats = {
+            'total': instance.phone_numbers.count(),
+            'active': instance.phone_numbers.filter(status='active').count(),
+            'reserved': instance.phone_numbers.filter(status='reserved').count(),
+            'deprecated': instance.phone_numbers.filter(status='deprecated').count(),
+        }
+        
+        return {
+            'stats': stats,
+        }
 
 
 class TelephonyProviderEditView(generic.ObjectEditView):  # Изменено

@@ -73,31 +73,25 @@
                     <tr>
                         <th scope="row">Total Numbers</th>
                         <td>
-                            <span class="badge bg-primary">{{ object.numbers_count }}</span>
+                            <span class="badge bg-primary">{{ stats.total }}</span>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">Active Numbers</th>
                         <td>
-                            <span class="badge bg-success">
-                                {{ object.phone_numbers.filter.status='active'|length }}
-                            </span>
+                            <span class="badge bg-success">{{ stats.active }}</span>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">Reserved Numbers</th>
                         <td>
-                            <span class="badge bg-warning">
-                                {{ object.phone_numbers.filter.status='reserved'|length }}
-                            </span>
+                            <span class="badge bg-warning">{{ stats.reserved }}</span>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">Deprecated Numbers</th>
                         <td>
-                            <span class="badge bg-danger">
-                                {{ object.phone_numbers.filter.status='deprecated'|length }}
-                            </span>
+                            <span class="badge bg-danger">{{ stats.deprecated }}</span>
                         </td>
                     </tr>
                 </table>
