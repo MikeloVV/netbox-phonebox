@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name='netbox-phonebox',
-    version='1.1.0',
+    version='1.1.2',
     description='Phone number management for NetBox',
     url='https://github.com/MikeloVV/netbox-phonebox',
     author='Mikhail Voronov',

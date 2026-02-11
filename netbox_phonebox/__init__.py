@@ -4,7 +4,7 @@ class PhoneBoxConfig(PluginConfig):
     name = 'netbox_phonebox'
     verbose_name = 'PhoneBox'
     description = 'Phone number management for NetBox with validation and normalization'
-    version = '1.1.0'
+    version = '1.1.2'
     author = 'Mikhail Voronov'
     author_email = 'mikhail.voronov@gmail.com'
     base_url = 'phonebox'
