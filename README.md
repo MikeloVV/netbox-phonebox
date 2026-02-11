@@ -39,3 +39,34 @@ Advanced phone number and PBX management plugin for NetBox with E.164 validation
 
 ```bash
 pip install git+https://github.com/MikeloVV/netbox-phonebox.git
+
+### Grandstream UCM Configuration
+
+#### Enable AMI on Grandstream UCM
+
+1. **Login to UCM Web Interface**
+   - Navigate to `https://your-ucm-ip`
+   - Login with admin credentials
+
+2. **Enable AMI**
+   - Go to **PBX Settings → AMI Users**
+   - Click **Add New AMI User**
+   - Configure:
+     ```
+     Username: netbox
+     Secret: your_secure_password
+     Permit: YOUR_NETBOX_IP
+     Deny: 0.0.0.0/0.0.0.0
+     Read: all
+     Write: all
+     ```
+   - Click **Save**
+   - Click **Apply Changes**
+
+3. **Configure Firewall (if needed)**
+   - Go to **System Settings → Security**
+   - Add firewall rule to allow AMI port (5038) from NetBox IP
+
+4. **Test AMI Connection**
+   ```bash
+   telnet your-ucm-ip 5038

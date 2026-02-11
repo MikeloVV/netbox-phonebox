@@ -83,6 +83,7 @@ class PBXServer(NetBoxModel):
     TYPE_CHOICES = [
         ('asterisk', 'Asterisk'),
         ('freepbx', 'FreePBX'),
+        ('grandstream_ucm', 'Grandstream UCM'),
         ('3cx', '3CX'),
         ('other', 'Other'),
     ]
