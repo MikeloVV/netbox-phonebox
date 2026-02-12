@@ -66,7 +66,10 @@ class TelephonyProviderForm(NetBoxModelForm):
     
     class Meta:
         model = TelephonyProvider
-        fields = ['name', 'description', 'comments', 'tags']
+        fields = [
+            'name', 'description', 'website', 'support_phone', 
+            'support_email', 'comments', 'tags'
+        ]
 
 
 class PBXServerForm(NetBoxModelForm):
