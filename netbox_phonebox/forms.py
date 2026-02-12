@@ -1,22 +1,26 @@
 from django import forms
 from netbox.forms import NetBoxModelForm, NetBoxModelFilterSetForm
-from dcim.models import Device
+from utilities.forms.fields import (
+    DynamicModelChoiceField, 
+    DynamicModelMultipleChoiceField, 
+    TagFilterField
+)
+from dcim.models import Device, Site, Location
 from virtualization.models import VirtualMachine
 from tenancy.models import Contact
-from utilities.forms.fields import DynamicModelChoiceField, DynamicModelMultipleChoiceField, TagFilterField
-from .models import PhoneNumber, TelephonyProvider  # Изменено
+
 from .models import (
     PhoneNumber, TelephonyProvider, PBXServer, 
-    SIPTrunk, Extension, CallLog
+    SIPTrunk, Extension, CallLog, SECRETS_AVAILABLE  # ← Добавьте SECRETS_AVAILABLE
 )
 
+# Импорт Secret если доступен
+if SECRETS_AVAILABLE:
+    from netbox_secrets.models import Secret
+
+
 class PhoneNumberForm(NetBoxModelForm):
-    """Form for creating/editing phone numbers"""
-    
-    provider = DynamicModelChoiceField(
-        queryset=TelephonyProvider.objects.all(),  # Изменено
-        required=False
-    )
+    """Form for PhoneNumber model"""
     
     contact = DynamicModelChoiceField(
         queryset=Contact.objects.all(),
@@ -25,7 +29,10 @@ class PhoneNumberForm(NetBoxModelForm):
     
     device = DynamicModelChoiceField(
         queryset=Device.objects.all(),
-        required=False
+        required=False,
+        query_params={
+            'site_id': '$site'
+        }
     )
     
     virtual_machine = DynamicModelChoiceField(
@@ -33,169 +40,42 @@ class PhoneNumberForm(NetBoxModelForm):
         required=False
     )
     
+    provider = DynamicModelChoiceField(
+        queryset=TelephonyProvider.objects.all(),
+        required=False
+    )
+    
+    extension = DynamicModelChoiceField(
+        queryset=Extension.objects.all(),
+        required=False,
+        query_params={
+            'pbx_server_id': '$pbx_server'
+        }
+    )
+    
     class Meta:
         model = PhoneNumber
         fields = [
-            'number', 'country_code', 'type', 'status', 'provider',
-            'contact', 'device', 'virtual_machine', 'description',
-            'comments', 'tags'
+            'number', 'type', 'status', 'contact', 'device', 'virtual_machine',
+            'provider', 'extension', 'description', 'comments', 'tags'
         ]
-        help_texts = {
-            'number': 'Enter phone number in international format (e.g., +1234567890) or specify country code',
-            'country_code': 'Optional. Will be auto-detected if not provided (e.g., RU, US, GB)',
-        }
 
 
-class PhoneNumberFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for phone numbers"""
-    
-    model = PhoneNumber
-    
-    type = forms.MultipleChoiceField(
-        choices=PhoneNumber.TYPE_CHOICES,
-        required=False
-    )
-    
-    status = forms.MultipleChoiceField(
-        choices=PhoneNumber.STATUS_CHOICES,
-        required=False
-    )
-    
-    provider_id = DynamicModelMultipleChoiceField(
-        queryset=TelephonyProvider.objects.all(),  # Изменено
-        required=False,
-        label='Provider'
-    )
-    
-    contact_id = DynamicModelMultipleChoiceField(
-        queryset=Contact.objects.all(),
-        required=False,
-        label='Contact'
-    )
-    
-    device_id = DynamicModelMultipleChoiceField(
-        queryset=Device.objects.all(),
-        required=False,
-        label='Device'
-    )
-    
-    virtual_machine_id = DynamicModelMultipleChoiceField(
-        queryset=VirtualMachine.objects.all(),
-        required=False,
-        label='Virtual Machine'
-    )
-    
-    tag = TagFilterField(model)
-
-
-class TelephonyProviderForm(NetBoxModelForm):  # Изменено
-    """Form for creating/editing telephony providers"""
+class TelephonyProviderForm(NetBoxModelForm):
+    """Form for TelephonyProvider model"""
     
     class Meta:
-        model = TelephonyProvider  # Изменено
+        model = TelephonyProvider
         fields = [
-            'name', 'description', 'website', 'support_phone',
-            'support_email', 'comments', 'tags'
+            'name', 'asn', 'account', 'portal_url',
+            'description', 'comments', 'tags'
         ]
-
-
-class TelephonyProviderFilterForm(NetBoxModelFilterSetForm):  # Изменено
-    """Filter form for telephony providers"""
-    
-    model = TelephonyProvider  # Изменено
-    tag = TagFilterField(model)
-
-
-class PhoneNumberImportForm(forms.Form):
-    """Form for importing phone numbers from CSV"""
-    
-    csv_file = forms.FileField(
-        label='CSV File',
-        help_text='Upload CSV file with columns: number, type, status, country_code, provider, description'
-    )
-    
-    update_existing = forms.BooleanField(
-        required=False,
-        initial=False,
-        label='Update existing numbers',
-        help_text='Update existing phone numbers if they already exist (matched by normalized number)'
-    )
-
-
-class PhoneNumberBulkImportForm(forms.Form):
-    """Form for bulk import with text area"""
-    
-    numbers = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 10}),
-        label='Phone Numbers',
-        help_text='Enter one phone number per line. Format: +1234567890 or specify country code in form'
-    )
-    
-    country_code = forms.CharField(
-        max_length=5,
-        required=False,
-        label='Default Country Code',
-        help_text='Default country code for numbers without country prefix (e.g., RU, US)'
-    )
-    
-    type = forms.ChoiceField(
-        choices=PhoneNumber.TYPE_CHOICES,
-        initial='mobile',
-        label='Type'
-    )
-    
-    status = forms.ChoiceField(
-        choices=PhoneNumber.STATUS_CHOICES,
-        initial='active',
-        label='Status'
-    )
-    
-    provider = DynamicModelChoiceField(
-        queryset=TelephonyProvider.objects.all(),  # Изменено
-        required=False,
-        label='Provider'
-    )
-    
-class PBXServerForm(NetBoxModelForm):
-    """Form for creating/editing PBX servers"""
-    
-    class Meta:
-        model = PBXServer
-        fields = [
-            'name', 'type', 'hostname', 'ami_port', 'ami_username',
-            'ami_secret', 'web_url', 'enabled', 'description',
-            'comments', 'tags'
-        ]
-        widgets = {
-            'ami_secret': forms.PasswordInput(render_value=True),
-        }
-
-
-class PBXServerFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for PBX servers"""
-    
-    model = PBXServer
-    
-    type = forms.MultipleChoiceField(
-        choices=PBXServer.TYPE_CHOICES,
-        required=False
-    )
-    
-    enabled = forms.NullBooleanField(
-        required=False,
-        widget=forms.Select(choices=[
-            ('', '---------'),
-            ('true', 'Yes'),
-            ('false', 'No'),
-        ])
-    )
-    
-    tag = TagFilterField(model)
 
 
 class PBXServerForm(NetBoxModelForm):
     """Form for PBXServer model"""
     
+    # Добавляем поле ami_secret_ref только если SECRETS_AVAILABLE
     if SECRETS_AVAILABLE:
         ami_secret_ref = DynamicModelChoiceField(
             queryset=Secret.objects.all(),
@@ -212,13 +92,12 @@ class PBXServerForm(NetBoxModelForm):
             'comments', 'tags'
         ]
         
-        # Добавляем ami_secret_ref если доступен
-        if SECRETS_AVAILABLE:
-            fields.insert(fields.index('ami_secret') + 1, 'ami_secret_ref')
-        
         widgets = {
             'ami_secret': forms.PasswordInput(
-                attrs={'placeholder': 'Enter AMI password (or use Secret reference)'}
+                attrs={
+                    'placeholder': 'Enter AMI password (or use Secret reference)',
+                    'autocomplete': 'new-password'
+                }
             ),
         }
         
@@ -226,10 +105,30 @@ class PBXServerForm(NetBoxModelForm):
             'ami_secret': 'AMI password (legacy method - consider using Secret reference instead)',
         }
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Динамически добавляем ami_secret_ref в fields если доступен
+        if SECRETS_AVAILABLE and 'ami_secret_ref' not in self.fields:
+            self.fields['ami_secret_ref'] = DynamicModelChoiceField(
+                queryset=Secret.objects.all(),
+                required=False,
+                label='AMI Secret (from Secrets)',
+                help_text='Select secret from NetBox Secrets (recommended)'
+            )
+            
+            # Переупорядочиваем поля
+            field_order = list(self.fields.keys())
+            if 'ami_secret' in field_order:
+                ami_secret_index = field_order.index('ami_secret')
+                field_order.insert(ami_secret_index + 1, 'ami_secret_ref')
+                field_order.remove('ami_secret_ref')
+                self.order_fields(field_order)
+    
     def clean(self):
         cleaned_data = super().clean()
         ami_secret = cleaned_data.get('ami_secret')
-        ami_secret_ref = cleaned_data.get('ami_secret_ref')
+        ami_secret_ref = cleaned_data.get('ami_secret_ref') if SECRETS_AVAILABLE else None
         
         # Требуем хотя бы один из методов
         if not ami_secret and not ami_secret_ref:
@@ -268,12 +167,12 @@ class SIPTrunkForm(NetBoxModelForm):
             'enabled', 'description', 'comments', 'tags'
         ]
         
-        if SECRETS_AVAILABLE:
-            fields.insert(fields.index('secret') + 1, 'secret_ref')
-        
         widgets = {
             'secret': forms.PasswordInput(
-                attrs={'placeholder': 'Enter SIP password (or use Secret reference)'}
+                attrs={
+                    'placeholder': 'Enter SIP password (or use Secret reference)',
+                    'autocomplete': 'new-password'
+                }
             ),
         }
         
@@ -281,51 +180,39 @@ class SIPTrunkForm(NetBoxModelForm):
             'secret': 'SIP password (legacy method - consider using Secret reference instead)',
         }
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Динамически добавляем secret_ref в fields если доступен
+        if SECRETS_AVAILABLE and 'secret_ref' not in self.fields:
+            self.fields['secret_ref'] = DynamicModelChoiceField(
+                queryset=Secret.objects.all(),
+                required=False,
+                label='Secret (from Secrets)',
+                help_text='Select secret from NetBox Secrets (recommended)'
+            )
+            
+            # Переупорядочиваем поля
+            field_order = list(self.fields.keys())
+            if 'secret' in field_order:
+                secret_index = field_order.index('secret')
+                field_order.insert(secret_index + 1, 'secret_ref')
+                field_order.remove('secret_ref')
+                self.order_fields(field_order)
+    
     def clean(self):
         cleaned_data = super().clean()
         secret = cleaned_data.get('secret')
-        secret_ref = cleaned_data.get('secret_ref')
+        secret_ref = cleaned_data.get('secret_ref') if SECRETS_AVAILABLE else None
         
-        # Хотя бы один метод должен быть указан
-        if not secret and not secret_ref:
+        # Хотя бы один метод должен быть указан (если указан username)
+        username = cleaned_data.get('username')
+        if username and not secret and not secret_ref:
             raise forms.ValidationError(
-                'Please provide either Secret or Secret Reference'
+                'Please provide either Secret or Secret Reference when Username is specified'
             )
         
         return cleaned_data
-
-class SIPTrunkFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for SIP trunks"""
-    
-    model = SIPTrunk
-    
-    pbx_server_id = DynamicModelMultipleChoiceField(
-        queryset=PBXServer.objects.all(),
-        required=False,
-        label='PBX Server'
-    )
-    
-    provider_id = DynamicModelMultipleChoiceField(
-        queryset=TelephonyProvider.objects.all(),
-        required=False,
-        label='Provider'
-    )
-    
-    type = forms.MultipleChoiceField(
-        choices=SIPTrunk.TYPE_CHOICES,
-        required=False
-    )
-    
-    enabled = forms.NullBooleanField(
-        required=False,
-        widget=forms.Select(choices=[
-            ('', '---------'),
-            ('true', 'Yes'),
-            ('false', 'No'),
-        ])
-    )
-    
-    tag = TagFilterField(model)
 
 
 class ExtensionForm(NetBoxModelForm):
@@ -360,12 +247,12 @@ class ExtensionForm(NetBoxModelForm):
             'secret', 'enabled', 'description', 'comments', 'tags'
         ]
         
-        if SECRETS_AVAILABLE:
-            fields.insert(fields.index('secret') + 1, 'secret_ref')
-        
         widgets = {
             'secret': forms.PasswordInput(
-                attrs={'placeholder': 'Enter extension password (or use Secret reference)'}
+                attrs={
+                    'placeholder': 'Enter extension password (or use Secret reference)',
+                    'autocomplete': 'new-password'
+                }
             ),
         }
         
@@ -373,25 +260,83 @@ class ExtensionForm(NetBoxModelForm):
             'secret': 'Extension password (legacy method - consider using Secret reference instead)',
         }
     
-    def clean(self):
-        cleaned_data = super().clean()
-        secret = cleaned_data.get('secret')
-        secret_ref = cleaned_data.get('secret_ref')
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         
-        # Хотя бы один метод должен быть указан (если указан любой)
-        # Можно сделать оба необязательными для некоторых типов extensions
-        
-        return cleaned_data
+        # Динамически добавляем secret_ref в fields если доступен
+        if SECRETS_AVAILABLE and 'secret_ref' not in self.fields:
+            self.fields['secret_ref'] = DynamicModelChoiceField(
+                queryset=Secret.objects.all(),
+                required=False,
+                label='Secret (from Secrets)',
+                help_text='Select secret from NetBox Secrets (recommended)'
+            )
+            
+            # Переупорядочиваем поля
+            field_order = list(self.fields.keys())
+            if 'secret' in field_order:
+                secret_index = field_order.index('secret')
+                field_order.insert(secret_index + 1, 'secret_ref')
+                field_order.remove('secret_ref')
+                self.order_fields(field_order)
 
-class ExtensionFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for extensions"""
+
+class MakeCallForm(forms.Form):
+    """Form for initiating a call"""
     
-    model = Extension
+    pbx_server = DynamicModelChoiceField(
+        queryset=PBXServer.objects.filter(enabled=True),
+        required=True,
+        label='PBX Server',
+        help_text='Select PBX server to use'
+    )
     
-    pbx_server_id = DynamicModelMultipleChoiceField(
-        queryset=PBXServer.objects.all(),
+    from_extension = DynamicModelChoiceField(
+        queryset=Extension.objects.filter(enabled=True),
+        required=True,
+        label='From Extension',
+        help_text='Extension to call from',
+        query_params={
+            'pbx_server_id': '$pbx_server'
+        }
+    )
+    
+    to_number = forms.CharField(
+        max_length=50,
+        required=True,
+        label='To Number',
+        help_text='Number to call (e.g., +79991234567 or extension)',
+        widget=forms.TextInput(attrs={
+            'placeholder': '+79991234567'
+        })
+    )
+    
+    caller_id = forms.CharField(
+        max_length=50,
         required=False,
-        label='PBX Server'
+        label='Caller ID',
+        help_text='Optional caller ID to display',
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Optional'
+        })
+    )
+
+
+# FilterSet Forms
+
+class PhoneNumberFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for PhoneNumber model"""
+    
+    model = PhoneNumber
+    
+    type = forms.MultipleChoiceField(
+        choices=PhoneNumber.TYPE_CHOICES,
+        required=False
+    )
+    
+    status = forms.MultipleChoiceField(
+        choices=PhoneNumber.STATUS_CHOICES,
+        required=False
     )
     
     contact_id = DynamicModelMultipleChoiceField(
@@ -406,8 +351,35 @@ class ExtensionFilterForm(NetBoxModelFilterSetForm):
         label='Device'
     )
     
+    provider_id = DynamicModelMultipleChoiceField(
+        queryset=TelephonyProvider.objects.all(),
+        required=False,
+        label='Provider'
+    )
+    
+    extension_id = DynamicModelMultipleChoiceField(
+        queryset=Extension.objects.all(),
+        required=False,
+        label='Extension'
+    )
+    
+    tag = TagFilterField(model)
+
+
+class TelephonyProviderFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for TelephonyProvider model"""
+    
+    model = TelephonyProvider
+    tag = TagFilterField(model)
+
+
+class PBXServerFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for PBXServer model"""
+    
+    model = PBXServer
+    
     type = forms.MultipleChoiceField(
-        choices=Extension.TYPE_CHOICES,
+        choices=PBXServer.TYPE_CHOICES,
         required=False
     )
     
@@ -423,8 +395,87 @@ class ExtensionFilterForm(NetBoxModelFilterSetForm):
     tag = TagFilterField(model)
 
 
+class SIPTrunkFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for SIPTrunk model"""
+    
+    model = SIPTrunk
+    
+    pbx_server_id = DynamicModelMultipleChoiceField(
+        queryset=PBXServer.objects.all(),
+        required=False,
+        label='PBX Server'
+    )
+    
+    provider_id = DynamicModelMultipleChoiceField(
+        queryset=TelephonyProvider.objects.all(),
+        required=False,
+        label='Provider'
+    )
+    
+    type = forms.MultipleChoiceField(
+        choices=SIPTrunk.TYPE_CHOICES,
+        required=False
+    )
+    
+    transport = forms.MultipleChoiceField(
+        choices=SIPTrunk.TRANSPORT_CHOICES,
+        required=False
+    )
+    
+    enabled = forms.NullBooleanField(
+        required=False,
+        widget=forms.Select(choices=[
+            ('', '---------'),
+            ('true', 'Yes'),
+            ('false', 'No'),
+        ])
+    )
+    
+    tag = TagFilterField(model)
+
+
+class ExtensionFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for Extension model"""
+    
+    model = Extension
+    
+    pbx_server_id = DynamicModelMultipleChoiceField(
+        queryset=PBXServer.objects.all(),
+        required=False,
+        label='PBX Server'
+    )
+    
+    type = forms.MultipleChoiceField(
+        choices=Extension.TYPE_CHOICES,
+        required=False
+    )
+    
+    contact_id = DynamicModelMultipleChoiceField(
+        queryset=Contact.objects.all(),
+        required=False,
+        label='Contact'
+    )
+    
+    device_id = DynamicModelMultipleChoiceField(
+        queryset=Device.objects.all(),
+        required=False,
+        label='Device'
+    )
+    
+    enabled = forms.NullBooleanField(
+        required=False,
+        widget=forms.Select(choices=[
+            ('', '---------'),
+            ('true', 'Yes'),
+            ('false', 'No'),
+        ])
+    )
+    
+    tag = TagFilterField(model)
+
+
 class CallLogFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for call logs"""
+    """Filter form for CallLog model"""
     
     model = CallLog
     
@@ -450,37 +501,4 @@ class CallLogFilterForm(NetBoxModelFilterSetForm):
         required=False
     )
     
-    start_time_after = forms.DateTimeField(
-        required=False,
-        label='Start Time After',
-        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'})
-    )
-    
-    start_time_before = forms.DateTimeField(
-        required=False,
-        label='Start Time Before',
-        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'})
-    )
-    
     tag = TagFilterField(model)
-
-
-class MakeCallForm(forms.Form):
-    """Form for initiating a call"""
-    
-    pbx_server = DynamicModelChoiceField(
-        queryset=PBXServer.objects.filter(enabled=True),
-        label='PBX Server'
-    )
-    
-    extension = DynamicModelChoiceField(
-        queryset=Extension.objects.filter(enabled=True),
-        label='From Extension',
-        query_params={'pbx_server_id': '$pbx_server'}
-    )
-    
-    to_number = forms.CharField(
-        max_length=50,
-        label='To Number',
-        help_text='Phone number to call (international format recommended)'
-    )
