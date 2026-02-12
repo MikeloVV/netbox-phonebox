@@ -11,7 +11,7 @@ from tenancy.models import Contact
 
 from .models import (
     PhoneNumber, TelephonyProvider, PBXServer, 
-    SIPTrunk, Extension, CallLog, SECRETS_AVAILABLE  # ← Добавьте SECRETS_AVAILABLE
+    SIPTrunk, Extension, CallLog, SECRETS_AVAILABLE
 )
 
 # Импорт Secret если доступен
@@ -66,23 +66,11 @@ class TelephonyProviderForm(NetBoxModelForm):
     
     class Meta:
         model = TelephonyProvider
-        fields = [
-            'name', 'asn', 'account', 'portal_url',
-            'description', 'comments', 'tags'
-        ]
+        fields = ['name', 'description', 'comments', 'tags']
 
 
 class PBXServerForm(NetBoxModelForm):
     """Form for PBXServer model"""
-    
-    # Добавляем поле ami_secret_ref только если SECRETS_AVAILABLE
-    if SECRETS_AVAILABLE:
-        ami_secret_ref = DynamicModelChoiceField(
-            queryset=Secret.objects.all(),
-            required=False,
-            label='AMI Secret (from Secrets)',
-            help_text='Select secret from NetBox Secrets (recommended)'
-        )
     
     class Meta:
         model = PBXServer
@@ -109,7 +97,7 @@ class PBXServerForm(NetBoxModelForm):
         super().__init__(*args, **kwargs)
         
         # Динамически добавляем ami_secret_ref в fields если доступен
-        if SECRETS_AVAILABLE and 'ami_secret_ref' not in self.fields:
+        if SECRETS_AVAILABLE:
             self.fields['ami_secret_ref'] = DynamicModelChoiceField(
                 queryset=Secret.objects.all(),
                 required=False,
@@ -122,7 +110,6 @@ class PBXServerForm(NetBoxModelForm):
             if 'ami_secret' in field_order:
                 ami_secret_index = field_order.index('ami_secret')
                 field_order.insert(ami_secret_index + 1, 'ami_secret_ref')
-                field_order.remove('ami_secret_ref')
                 self.order_fields(field_order)
     
     def clean(self):
@@ -151,14 +138,6 @@ class SIPTrunkForm(NetBoxModelForm):
         required=False
     )
     
-    if SECRETS_AVAILABLE:
-        secret_ref = DynamicModelChoiceField(
-            queryset=Secret.objects.all(),
-            required=False,
-            label='Secret (from Secrets)',
-            help_text='Select secret from NetBox Secrets (recommended)'
-        )
-    
     class Meta:
         model = SIPTrunk
         fields = [
@@ -184,7 +163,7 @@ class SIPTrunkForm(NetBoxModelForm):
         super().__init__(*args, **kwargs)
         
         # Динамически добавляем secret_ref в fields если доступен
-        if SECRETS_AVAILABLE and 'secret_ref' not in self.fields:
+        if SECRETS_AVAILABLE:
             self.fields['secret_ref'] = DynamicModelChoiceField(
                 queryset=Secret.objects.all(),
                 required=False,
@@ -197,7 +176,6 @@ class SIPTrunkForm(NetBoxModelForm):
             if 'secret' in field_order:
                 secret_index = field_order.index('secret')
                 field_order.insert(secret_index + 1, 'secret_ref')
-                field_order.remove('secret_ref')
                 self.order_fields(field_order)
     
     def clean(self):
@@ -232,14 +210,6 @@ class ExtensionForm(NetBoxModelForm):
         required=False
     )
     
-    if SECRETS_AVAILABLE:
-        secret_ref = DynamicModelChoiceField(
-            queryset=Secret.objects.all(),
-            required=False,
-            label='Secret (from Secrets)',
-            help_text='Select secret from NetBox Secrets (recommended)'
-        )
-    
     class Meta:
         model = Extension
         fields = [
@@ -264,7 +234,7 @@ class ExtensionForm(NetBoxModelForm):
         super().__init__(*args, **kwargs)
         
         # Динамически добавляем secret_ref в fields если доступен
-        if SECRETS_AVAILABLE and 'secret_ref' not in self.fields:
+        if SECRETS_AVAILABLE:
             self.fields['secret_ref'] = DynamicModelChoiceField(
                 queryset=Secret.objects.all(),
                 required=False,
@@ -277,7 +247,6 @@ class ExtensionForm(NetBoxModelForm):
             if 'secret' in field_order:
                 secret_index = field_order.index('secret')
                 field_order.insert(secret_index + 1, 'secret_ref')
-                field_order.remove('secret_ref')
                 self.order_fields(field_order)
 
 
