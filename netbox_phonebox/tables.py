@@ -439,10 +439,12 @@ class CallLogTable(NetBoxTable):
     tags = columns.TagColumn(
         url_name='plugins:netbox_phonebox:calllog_list'
     )
-     # Переопределяем actions чтобы убрать edit
+    
+    # ВАЖНО: Переопределяем actions - убираем edit
     actions = columns.ActionsColumn(
-        actions=('view', 'delete'),  # ← Только view и delete, БЕЗ edit
+        actions=('changelog', 'delete'),  # Только changelog и delete, БЕЗ edit
     )
+    
     class Meta(NetBoxTable.Meta):
         model = CallLog
         fields = (
@@ -452,5 +454,6 @@ class CallLogTable(NetBoxTable):
         )
         default_columns = (
             'pk', 'direction', 'caller_number', 'called_number',
-            'extension', 'status', 'start_time', 'duration', 'recording'
+            'extension', 'status', 'start_time', 'duration', 'recording', 'actions'
         )
+        
