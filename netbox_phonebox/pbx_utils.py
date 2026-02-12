@@ -9,33 +9,26 @@ logger = logging.getLogger('netbox_phonebox.pbx_utils')
 
 
 def get_ami_client(pbx_server: PBXServer):
-    """
-    Get appropriate AMI client based on PBX type
-    
-    Args:
-        pbx_server: PBX server instance
-    
-    Returns:
-        AMI client instance (AsteriskAMI or GrandstreamAMI)
-    """
+    """Get appropriate AMI client based on PBX type"""
     logger.info(f"Creating AMI client for {pbx_server.name} (type: {pbx_server.type})")
+    
+    # Получаем secret через метод get_ami_secret()
+    ami_secret = pbx_server.get_ami_secret()
     
     if pbx_server.type == 'grandstream_ucm':
         return GrandstreamAMI(
             host=pbx_server.hostname,
             port=pbx_server.ami_port,
             username=pbx_server.ami_username,
-            secret=pbx_server.ami_secret
+            secret=ami_secret  # Используем метод get_ami_secret()
         )
     else:
-        # Для Asterisk, FreePBX и других
         return AsteriskAMI(
             host=pbx_server.hostname,
             port=pbx_server.ami_port,
             username=pbx_server.ami_username,
-            secret=pbx_server.ami_secret
+            secret=ami_secret  # Используем метод get_ami_secret()
         )
-
 
 def get_pbx_status(pbx_server: PBXServer) -> Dict[str, Any]:
     """
