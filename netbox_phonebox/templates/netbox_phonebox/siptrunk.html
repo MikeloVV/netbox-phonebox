@@ -4,19 +4,18 @@
 {% block content %}
 <div class="row">
     <div class="col-md-6">
-        <!-- SIP Trunk Details -->
         <div class="card">
             <h5 class="card-header">SIP Trunk Details</h5>
             <div class="card-body">
                 <table class="table table-hover attr-table">
                     <tr>
                         <th scope="row">Name</th>
-                        <td><strong>{{ object.name }}</strong></td>
+                        <td>{{ object.name }}</td>
                     </tr>
                     <tr>
                         <th scope="row">PBX Server</th>
                         <td>
-                            <a href="{% url 'plugins:netbox_phonebox:pbxserver' pk=object.pbx_server.pk %}">
+                            <a href="{{ object.pbx_server.get_absolute_url }}">
                                 {{ object.pbx_server }}
                             </a>
                         </td>
@@ -25,7 +24,7 @@
                     <tr>
                         <th scope="row">Provider</th>
                         <td>
-                            <a href="{% url 'plugins:netbox_phonebox:telephonyprovider' pk=object.provider.pk %}">
+                            <a href="{{ object.provider.get_absolute_url }}">
                                 {{ object.provider }}
                             </a>
                         </td>
@@ -34,7 +33,7 @@
                     <tr>
                         <th scope="row">Type</th>
                         <td>
-                            <span class="badge bg-info">{{ object.get_type_display }}</span>
+                            <span class="badge bg-primary">{{ object.get_type_display }}</span>
                         </td>
                     </tr>
                     <tr>
@@ -48,7 +47,7 @@
                     <tr>
                         <th scope="row">Transport</th>
                         <td>
-                            <span class="badge bg-secondary">{{ object.get_transport_display }}</span>
+                            <span class="badge bg-info">{{ object.get_transport_display|upper }}</span>
                         </td>
                     </tr>
                     {% if object.username %}
@@ -57,6 +56,24 @@
                         <td><code>{{ object.username }}</code></td>
                     </tr>
                     {% endif %}
+                    <tr>
+                        <th scope="row">Secret</th>
+                        <td>
+                            {% if object.secret_ref %}
+                                <a href="{{ object.secret_ref.get_absolute_url }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="mdi mdi-key"></i> View Secret: {{ object.secret_ref.name }}
+                                </a>
+                                <small class="text-muted d-block mt-1">
+                                    Role: {{ object.secret_ref.role }}
+                                </small>
+                            {% elif object.secret %}
+                                <code>••••••••</code>
+                                <small class="text-muted d-block">(stored directly - consider migrating to Secrets)</small>
+                            {% else %}
+                                <span class="text-muted">Not configured</span>
+                            {% endif %}
+                        </td>
+                    </tr>
                     <tr>
                         <th scope="row">Context</th>
                         <td><code>{{ object.context }}</code></td>
@@ -90,39 +107,78 @@
         </div>
         {% endif %}
     </div>
-    
+
     <div class="col-md-6">
-        <!-- Configuration -->
+        <!-- Connection Info -->
         <div class="card">
-            <h5 class="card-header">Configuration Example</h5>
+            <h5 class="card-header">Connection Information</h5>
             <div class="card-body">
-                <p class="text-muted">Asterisk/FreePBX configuration:</p>
-                <pre class="bg-light p-3"><code>[{{ object.name }}]
-type={{ object.type }}
-host={{ object.host }}
-port={{ object.port }}
-transport={{ object.transport }}
-{% if object.username %}username={{ object.username }}{% endif %}
-{% if object.secret %}secret=*****{% endif %}
-context={{ object.context }}
-qualify=yes
-nat=yes</code></pre>
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">SIP URI</th>
+                        <td>
+                            <code>sip:{% if object.username %}{{ object.username }}@{% endif %}{{ object.host }}:{{ object.port }};transport={{ object.transport }}</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Full Address</th>
+                        <td>
+                            <code>{{ object.host }}:{{ object.port }}</code>
+                        </td>
+                    </tr>
+                </table>
             </div>
         </div>
+
+        <!-- Statistics -->
+        {% if stats %}
+        <div class="card mt-3">
+            <h5 class="card-header">Call Statistics</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Total Calls</th>
+                        <td>
+                            <span class="badge bg-info">{{ stats.total_calls }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Inbound Calls</th>
+                        <td>
+                            <span class="badge bg-success">{{ stats.inbound_calls }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Outbound Calls</th>
+                        <td>
+                            <span class="badge bg-primary">{{ stats.outbound_calls }}</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Quick Actions -->
         <div class="card mt-3">
             <h5 class="card-header">Quick Actions</h5>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="{% url 'plugins:netbox_phonebox:pbxserver' pk=object.pbx_server.pk %}" 
+                    <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?trunk={{ object.pk }}" 
+                       class="btn btn-outline-info">
+                        <i class="mdi mdi-phone-log"></i> View Call History
+                    </a>
+                    
+                    {% if object.pbx_server %}
+                    <a href="{{ object.pbx_server.get_absolute_url }}" 
                        class="btn btn-outline-primary">
                         <i class="mdi mdi-server"></i> View PBX Server
                     </a>
+                    {% endif %}
                     
                     {% if object.provider %}
-                    <a href="{% url 'plugins:netbox_phonebox:telephonyprovider' pk=object.provider.pk %}" 
-                       class="btn btn-outline-info">
+                    <a href="{{ object.provider.get_absolute_url }}" 
+                       class="btn btn-outline-secondary">
                         <i class="mdi mdi-domain"></i> View Provider
                     </a>
                     {% endif %}
@@ -131,35 +187,4 @@ nat=yes</code></pre>
         </div>
     </div>
 </div>
-
-<!-- Metadata -->
-<div class="row mt-3">
-    <div class="col-12">
-        <div class="card">
-            <h5 class="card-header">Metadata</h5>
-            <div class="card-body">
-                <table class="table table-hover attr-table">
-                    <tr>
-                        <th scope="row">Created</th>
-                        <td>{{ object.created|date:"Y-m-d H:i:s" }}</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Last Updated</th>
-                        <td>{{ object.last_updated|date:"Y-m-d H:i:s" }}</td>
-                    </tr>
-                    {% if object.tags.all %}
-                    <tr>
-                        <th scope="row">Tags</th>
-                        <td>
-                            {% for tag in object.tags.all %}
-                                <span class="badge" style="background-color: #{{ tag.color }}">{{ tag.name }}</span>
-                            {% endfor %}
-                        </td>
-                    </tr>
-                    {% endif %}
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+{% endblock content %}

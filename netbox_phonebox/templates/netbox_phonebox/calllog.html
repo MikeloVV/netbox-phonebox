@@ -4,7 +4,6 @@
 {% block content %}
 <div class="row">
     <div class="col-md-6">
-        <!-- Call Details -->
         <div class="card">
             <h5 class="card-header">Call Details</h5>
             <div class="card-body">
@@ -14,19 +13,27 @@
                         <td><code>{{ object.call_id }}</code></td>
                     </tr>
                     <tr>
+                        <th scope="row">PBX Server</th>
+                        <td>
+                            <a href="{{ object.pbx_server.get_absolute_url }}">
+                                {{ object.pbx_server }}
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row">Direction</th>
                         <td>
                             {% if object.direction == 'inbound' %}
                                 <span class="badge bg-success">
-                                    <i class="mdi mdi-phone-incoming"></i> {{ object.get_direction_display }}
+                                    <i class="mdi mdi-phone-incoming"></i> Inbound
                                 </span>
                             {% elif object.direction == 'outbound' %}
                                 <span class="badge bg-primary">
-                                    <i class="mdi mdi-phone-outgoing"></i> {{ object.get_direction_display }}
+                                    <i class="mdi mdi-phone-outgoing"></i> Outbound
                                 </span>
                             {% else %}
                                 <span class="badge bg-info">
-                                    <i class="mdi mdi-phone-in-talk"></i> {{ object.get_direction_display }}
+                                    <i class="mdi mdi-phone-in-talk"></i> Internal
                                 </span>
                             {% endif %}
                         </td>
@@ -39,19 +46,11 @@
                         <th scope="row">Called Number</th>
                         <td><strong>{{ object.called_number }}</strong></td>
                     </tr>
-                    <tr>
-                        <th scope="row">PBX Server</th>
-                        <td>
-                            <a href="{% url 'plugins:netbox_phonebox:pbxserver' pk=object.pbx_server.pk %}">
-                                {{ object.pbx_server }}
-                            </a>
-                        </td>
-                    </tr>
                     {% if object.extension %}
                     <tr>
                         <th scope="row">Extension</th>
                         <td>
-                            <a href="{% url 'plugins:netbox_phonebox:extension' pk=object.extension.pk %}">
+                            <a href="{{ object.extension.get_absolute_url }}">
                                 {{ object.extension }}
                             </a>
                         </td>
@@ -86,7 +85,7 @@
         </div>
         {% endif %}
     </div>
-    
+
     <div class="col-md-6">
         <!-- Timing Information -->
         <div class="card">
@@ -114,9 +113,8 @@
                         <td>
                             {% if object.duration > 0 %}
                                 <strong>{{ object.duration_formatted }}</strong>
-                                <br><small class="text-muted">{{ object.duration }} seconds</small>
                             {% else %}
-                                <span class="text-muted">No duration</span>
+                                <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -127,76 +125,39 @@
         <!-- Recording -->
         {% if object.recording_url %}
         <div class="card mt-3">
-            <h5 class="card-header">Call Recording</h5>
+            <h5 class="card-header">Recording</h5>
             <div class="card-body">
-                <audio controls class="w-100">
-                    <source src="{{ object.recording_url }}" type="audio/mpeg">
-                    Your browser does not support the audio element.
-                </audio>
-                <div class="mt-2">
-                    <a href="{{ object.recording_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                        <i class="mdi mdi-download"></i> Download Recording
-                    </a>
-                </div>
+                <a href="{{ object.recording_url }}" target="_blank" class="btn btn-primary">
+                    <i class="mdi mdi-play"></i> Play Recording
+                </a>
             </div>
         </div>
         {% endif %}
 
-       <!-- Quick Actions -->
-<div class="card mt-3">
-    <h5 class="card-header">Quick Actions</h5>
-    <div class="card-body">
-        <div class="d-grid gap-2">
-            {% if object.extension %}
-            <a href="{% url 'plugins:netbox_phonebox:make_call' %}?extension={{ object.extension.pk }}&number={{ object.caller_number }}" 
-               class="btn btn-success">
-                <i class="mdi mdi-phone"></i> Call Back
-            </a>
-            {% endif %}
-            
-            <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?caller_number={{ object.caller_number }}" 
-               class="btn btn-outline-info">
-                <i class="mdi mdi-phone-log"></i> View Calls from {{ object.caller_number }}
-            </a>
-            
-            <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?called_number={{ object.called_number }}" 
-               class="btn btn-outline-info">
-                <i class="mdi mdi-phone-log"></i> View Calls to {{ object.called_number }}
-            </a>
-        </div>
-    </div>
-</div>
-    </div>
-</div>
-
-<!-- Metadata -->
-<div class="row mt-3">
-    <div class="col-12">
-        <div class="card">
-            <h5 class="card-header">Metadata</h5>
+        <!-- Quick Actions -->
+        <div class="card mt-3">
+            <h5 class="card-header">Quick Actions</h5>
             <div class="card-body">
-                <table class="table table-hover attr-table">
-                    <tr>
-                        <th scope="row">Created</th>
-                        <td>{{ object.created|date:"Y-m-d H:i:s" }}</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Last Updated</th>
-                        <td>{{ object.last_updated|date:"Y-m-d H:i:s" }}</td>
-                    </tr>
-                    {% if object.tags.all %}
-                    <tr>
-                        <th scope="row">Tags</th>
-                        <td>
-                            {% for tag in object.tags.all %}
-                                <span class="badge" style="background-color: #{{ tag.color }}">{{ tag.name }}</span>
-                            {% endfor %}
-                        </td>
-                    </tr>
+                <div class="d-grid gap-2">
+                    {% if object.extension %}
+                    <a href="{% url 'plugins:netbox_phonebox:make_call' %}?extension={{ object.extension.pk }}&number={{ object.caller_number }}" 
+                       class="btn btn-success">
+                        <i class="mdi mdi-phone"></i> Call Back
+                    </a>
                     {% endif %}
-                </table>
+                    
+                    <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?caller_number={{ object.caller_number }}" 
+                       class="btn btn-outline-info">
+                        <i class="mdi mdi-phone-log"></i> View Calls from {{ object.caller_number }}
+                    </a>
+                    
+                    <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?called_number={{ object.called_number }}" 
+                       class="btn btn-outline-info">
+                        <i class="mdi mdi-phone-log"></i> View Calls to {{ object.called_number }}
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
+{% endblock content %}

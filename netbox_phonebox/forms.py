@@ -193,8 +193,55 @@ class PBXServerFilterForm(NetBoxModelFilterSetForm):
     tag = TagFilterField(model)
 
 
+class PBXServerForm(NetBoxModelForm):
+    """Form for PBXServer model"""
+    
+    if SECRETS_AVAILABLE:
+        ami_secret_ref = DynamicModelChoiceField(
+            queryset=Secret.objects.all(),
+            required=False,
+            label='AMI Secret (from Secrets)',
+            help_text='Select secret from NetBox Secrets (recommended)'
+        )
+    
+    class Meta:
+        model = PBXServer
+        fields = [
+            'name', 'type', 'hostname', 'ami_port', 'ami_username',
+            'ami_secret', 'web_url', 'enabled', 'description',
+            'comments', 'tags'
+        ]
+        
+        # Добавляем ami_secret_ref если доступен
+        if SECRETS_AVAILABLE:
+            fields.insert(fields.index('ami_secret') + 1, 'ami_secret_ref')
+        
+        widgets = {
+            'ami_secret': forms.PasswordInput(
+                attrs={'placeholder': 'Enter AMI password (or use Secret reference)'}
+            ),
+        }
+        
+        help_texts = {
+            'ami_secret': 'AMI password (legacy method - consider using Secret reference instead)',
+        }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        ami_secret = cleaned_data.get('ami_secret')
+        ami_secret_ref = cleaned_data.get('ami_secret_ref')
+        
+        # Требуем хотя бы один из методов
+        if not ami_secret and not ami_secret_ref:
+            raise forms.ValidationError(
+                'Please provide either AMI Secret or AMI Secret Reference'
+            )
+        
+        return cleaned_data
+
+
 class SIPTrunkForm(NetBoxModelForm):
-    """Form for creating/editing SIP trunks"""
+    """Form for SIPTrunk model"""
     
     pbx_server = DynamicModelChoiceField(
         queryset=PBXServer.objects.all()
@@ -205,17 +252,47 @@ class SIPTrunkForm(NetBoxModelForm):
         required=False
     )
     
+    if SECRETS_AVAILABLE:
+        secret_ref = DynamicModelChoiceField(
+            queryset=Secret.objects.all(),
+            required=False,
+            label='Secret (from Secrets)',
+            help_text='Select secret from NetBox Secrets (recommended)'
+        )
+    
     class Meta:
         model = SIPTrunk
         fields = [
             'name', 'pbx_server', 'provider', 'type', 'host', 'port',
-            'transport', 'username', 'secret', 'context', 'enabled',
-            'description', 'comments', 'tags'
+            'transport', 'username', 'secret', 'context',
+            'enabled', 'description', 'comments', 'tags'
         ]
+        
+        if SECRETS_AVAILABLE:
+            fields.insert(fields.index('secret') + 1, 'secret_ref')
+        
         widgets = {
-            'secret': forms.PasswordInput(render_value=True),
+            'secret': forms.PasswordInput(
+                attrs={'placeholder': 'Enter SIP password (or use Secret reference)'}
+            ),
         }
-
+        
+        help_texts = {
+            'secret': 'SIP password (legacy method - consider using Secret reference instead)',
+        }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        secret = cleaned_data.get('secret')
+        secret_ref = cleaned_data.get('secret_ref')
+        
+        # Хотя бы один метод должен быть указан
+        if not secret and not secret_ref:
+            raise forms.ValidationError(
+                'Please provide either Secret or Secret Reference'
+            )
+        
+        return cleaned_data
 
 class SIPTrunkFilterForm(NetBoxModelFilterSetForm):
     """Filter form for SIP trunks"""
@@ -252,7 +329,7 @@ class SIPTrunkFilterForm(NetBoxModelFilterSetForm):
 
 
 class ExtensionForm(NetBoxModelForm):
-    """Form for creating/editing extensions"""
+    """Form for Extension model"""
     
     pbx_server = DynamicModelChoiceField(
         queryset=PBXServer.objects.all()
@@ -268,16 +345,43 @@ class ExtensionForm(NetBoxModelForm):
         required=False
     )
     
+    if SECRETS_AVAILABLE:
+        secret_ref = DynamicModelChoiceField(
+            queryset=Secret.objects.all(),
+            required=False,
+            label='Secret (from Secrets)',
+            help_text='Select secret from NetBox Secrets (recommended)'
+        )
+    
     class Meta:
         model = Extension
         fields = [
             'extension', 'pbx_server', 'type', 'contact', 'device',
             'secret', 'enabled', 'description', 'comments', 'tags'
         ]
+        
+        if SECRETS_AVAILABLE:
+            fields.insert(fields.index('secret') + 1, 'secret_ref')
+        
         widgets = {
-            'secret': forms.PasswordInput(render_value=True),
+            'secret': forms.PasswordInput(
+                attrs={'placeholder': 'Enter extension password (or use Secret reference)'}
+            ),
         }
-
+        
+        help_texts = {
+            'secret': 'Extension password (legacy method - consider using Secret reference instead)',
+        }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        secret = cleaned_data.get('secret')
+        secret_ref = cleaned_data.get('secret_ref')
+        
+        # Хотя бы один метод должен быть указан (если указан любой)
+        # Можно сделать оба необязательными для некоторых типов extensions
+        
+        return cleaned_data
 
 class ExtensionFilterForm(NetBoxModelFilterSetForm):
     """Filter form for extensions"""

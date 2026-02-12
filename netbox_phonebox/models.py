@@ -8,7 +8,14 @@ from virtualization.models import VirtualMachine
 from tenancy.models import Contact
 import phonenumbers
 from phonenumbers import NumberParseException
+from utilities.choices import ChoiceSet
 
+# Импорт для интеграции с netbox-secrets
+try:
+    from netbox_secrets.models import Secret, SecretRole
+    SECRETS_AVAILABLE = True
+except ImportError:
+    SECRETS_AVAILABLE = False
 
 class TelephonyProvider(NetBoxModel):
     """Telephone service provider"""
@@ -78,7 +85,7 @@ class TelephonyProvider(NetBoxModel):
 
 
 class PBXServer(NetBoxModel):
-    """PBX Server (Asterisk/FreePBX)"""
+    """PBX Server (Asterisk/FreePBX/Grandstream UCM)"""
     
     TYPE_CHOICES = [
         ('asterisk', 'Asterisk'),
@@ -106,7 +113,7 @@ class PBXServer(NetBoxModel):
         help_text='PBX hostname or IP address'
     )
     
-    ami_port = models.IntegerField(
+    ami_port = models.PositiveIntegerField(
         default=5038,
         help_text='AMI port (default: 5038)'
     )
@@ -116,14 +123,27 @@ class PBXServer(NetBoxModel):
         help_text='AMI username'
     )
     
+    # Опция 1: Прямое хранение (legacy, для обратной совместимости)
     ami_secret = models.CharField(
         max_length=255,
-        help_text='AMI secret/password'
+        blank=True,
+        help_text='AMI secret/password (deprecated - use ami_secret_ref instead)'
     )
+    
+    # Опция 2: Ссылка на Secret (рекомендуется)
+    if SECRETS_AVAILABLE:
+        ami_secret_ref = models.ForeignKey(
+            to='netbox_secrets.Secret',
+            on_delete=models.SET_NULL,
+            blank=True,
+            null=True,
+            related_name='pbx_servers',
+            help_text='AMI secret from NetBox Secrets'
+        )
     
     web_url = models.URLField(
         blank=True,
-        help_text='Web interface URL'
+        help_text='PBX web interface URL'
     )
     
     enabled = models.BooleanField(
@@ -154,15 +174,30 @@ class PBXServer(NetBoxModel):
     @property
     def connection_string(self):
         """Get AMI connection string"""
-        return f"{self.hostname}:{self.ami_port}"
+        return f"{self.ami_username}@{self.hostname}:{self.ami_port}"
+    
+    def get_ami_secret(self):
+        """
+        Get AMI secret from Secret reference or direct field
+        
+        Returns:
+            str: AMI secret/password
+        """
+        if SECRETS_AVAILABLE and hasattr(self, 'ami_secret_ref') and self.ami_secret_ref:
+            try:
+                return self.ami_secret_ref.plaintext
+            except Exception as e:
+                # Fallback to direct field if secret decryption fails
+                return self.ami_secret
+        return self.ami_secret
 
 
 class SIPTrunk(NetBoxModel):
     """SIP Trunk configuration"""
     
     TYPE_CHOICES = [
-        ('register', 'Register'),
         ('peer', 'Peer'),
+        ('user', 'User'),
         ('friend', 'Friend'),
     ]
     
@@ -176,28 +211,27 @@ class SIPTrunk(NetBoxModel):
     
     name = models.CharField(
         max_length=100,
-        unique=True,
-        help_text='Trunk name'
+        help_text='SIP trunk name'
     )
     
     pbx_server = models.ForeignKey(
-        PBXServer,
+        to='PBXServer',
         on_delete=models.CASCADE,
         related_name='sip_trunks',
         help_text='PBX server'
     )
     
     provider = models.ForeignKey(
-        TelephonyProvider,
+        to='TelephonyProvider',
         on_delete=models.SET_NULL,
-        null=True,
         blank=True,
+        null=True,
         related_name='sip_trunks',
-        help_text='Service provider'
+        help_text='Telephony provider'
     )
     
     type = models.CharField(
-        max_length=20,
+        max_length=10,
         choices=TYPE_CHOICES,
         default='peer',
         help_text='SIP trunk type'
@@ -205,12 +239,12 @@ class SIPTrunk(NetBoxModel):
     
     host = models.CharField(
         max_length=255,
-        help_text='SIP server hostname or IP'
+        help_text='SIP host/IP'
     )
     
-    port = models.IntegerField(
+    port = models.PositiveIntegerField(
         default=5060,
-        help_text='SIP port (default: 5060)'
+        help_text='SIP port'
     )
     
     transport = models.CharField(
@@ -226,16 +260,28 @@ class SIPTrunk(NetBoxModel):
         help_text='SIP username'
     )
     
+    # Опция 1: Прямое хранение (legacy)
     secret = models.CharField(
         max_length=255,
         blank=True,
-        help_text='SIP password'
+        help_text='SIP secret/password (deprecated - use secret_ref instead)'
     )
+    
+    # Опция 2: Ссылка на Secret (рекомендуется)
+    if SECRETS_AVAILABLE:
+        secret_ref = models.ForeignKey(
+            to='netbox_secrets.Secret',
+            on_delete=models.SET_NULL,
+            blank=True,
+            null=True,
+            related_name='sip_trunks',
+            help_text='SIP secret from NetBox Secrets'
+        )
     
     context = models.CharField(
         max_length=100,
         default='from-trunk',
-        help_text='Asterisk context'
+        help_text='Dialplan context'
     )
     
     enabled = models.BooleanField(
@@ -256,20 +302,35 @@ class SIPTrunk(NetBoxModel):
         ordering = ['name']
         verbose_name = 'SIP Trunk'
         verbose_name_plural = 'SIP Trunks'
+        unique_together = ['pbx_server', 'name']
     
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.pbx_server})"
     
     def get_absolute_url(self):
         return reverse('plugins:netbox_phonebox:siptrunk', args=[self.pk])
+    
+    def get_secret(self):
+        """
+        Get SIP secret from Secret reference or direct field
+        
+        Returns:
+            str: SIP secret/password
+        """
+        if SECRETS_AVAILABLE and hasattr(self, 'secret_ref') and self.secret_ref:
+            try:
+                return self.secret_ref.plaintext
+            except Exception as e:
+                return self.secret
+        return self.secret
 
 
 class Extension(NetBoxModel):
-    """SIP Extension"""
+    """Extension configuration"""
     
     TYPE_CHOICES = [
-        ('sip', 'SIP'),
         ('pjsip', 'PJSIP'),
+        ('sip', 'SIP'),
         ('iax2', 'IAX2'),
     ]
     
@@ -279,7 +340,7 @@ class Extension(NetBoxModel):
     )
     
     pbx_server = models.ForeignKey(
-        PBXServer,
+        to='PBXServer',
         on_delete=models.CASCADE,
         related_name='extensions',
         help_text='PBX server'
@@ -293,28 +354,40 @@ class Extension(NetBoxModel):
     )
     
     contact = models.ForeignKey(
-        Contact,
+        to=Contact,
         on_delete=models.SET_NULL,
-        null=True,
         blank=True,
+        null=True,
         related_name='extensions',
-        help_text='Associated contact'
+        help_text='Assigned contact'
     )
     
     device = models.ForeignKey(
-        Device,
+        to=Device,
         on_delete=models.SET_NULL,
-        null=True,
         blank=True,
+        null=True,
         related_name='extensions',
-        help_text='Associated device (IP Phone)'
+        help_text='Assigned device (IP phone)'
     )
     
+    # Опция 1: Прямое хранение (legacy)
     secret = models.CharField(
         max_length=255,
         blank=True,
-        help_text='SIP secret/password'
+        help_text='Extension secret/password (deprecated - use secret_ref instead)'
     )
+    
+    # Опция 2: Ссылка на Secret (рекомендуется)
+    if SECRETS_AVAILABLE:
+        secret_ref = models.ForeignKey(
+            to='netbox_secrets.Secret',
+            on_delete=models.SET_NULL,
+            blank=True,
+            null=True,
+            related_name='extensions',
+            help_text='Extension secret from NetBox Secrets'
+        )
     
     enabled = models.BooleanField(
         default=True,
@@ -332,15 +405,29 @@ class Extension(NetBoxModel):
     
     class Meta:
         ordering = ['extension']
-        unique_together = ['extension', 'pbx_server']
         verbose_name = 'Extension'
         verbose_name_plural = 'Extensions'
+        unique_together = ['pbx_server', 'extension']
     
     def __str__(self):
         return f"{self.extension} ({self.pbx_server})"
     
     def get_absolute_url(self):
         return reverse('plugins:netbox_phonebox:extension', args=[self.pk])
+    
+    def get_secret(self):
+        """
+        Get extension secret from Secret reference or direct field
+        
+        Returns:
+            str: Extension secret/password
+        """
+        if SECRETS_AVAILABLE and hasattr(self, 'secret_ref') and self.secret_ref:
+            try:
+                return self.secret_ref.plaintext
+            except Exception as e:
+                return self.secret
+        return self.secret
 
 
 class CallLog(NetBoxModel):

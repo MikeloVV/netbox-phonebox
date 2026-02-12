@@ -1,22 +1,22 @@
 {% extends 'generic/object.html' %}
+{% load render_table from django_tables2 %}
 {% load helpers %}
 
 {% block content %}
 <div class="row">
     <div class="col-md-6">
-        <!-- PBX Server Details -->
         <div class="card">
             <h5 class="card-header">PBX Server Details</h5>
             <div class="card-body">
                 <table class="table table-hover attr-table">
                     <tr>
                         <th scope="row">Name</th>
-                        <td><strong>{{ object.name }}</strong></td>
+                        <td>{{ object.name }}</td>
                     </tr>
                     <tr>
                         <th scope="row">Type</th>
                         <td>
-                            <span class="badge bg-info">{{ object.get_type_display }}</span>
+                            <span class="badge bg-primary">{{ object.get_type_display }}</span>
                         </td>
                     </tr>
                     <tr>
@@ -28,15 +28,33 @@
                         <td><code>{{ object.ami_port }}</code></td>
                     </tr>
                     <tr>
-                        <th scope="row">Connection String</th>
-                        <td><code>{{ object.connection_string }}</code></td>
+                        <th scope="row">AMI Username</th>
+                        <td><code>{{ object.ami_username }}</code></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">AMI Secret</th>
+                        <td>
+                            {% if object.ami_secret_ref %}
+                                <a href="{{ object.ami_secret_ref.get_absolute_url }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="mdi mdi-key"></i> View Secret: {{ object.ami_secret_ref.name }}
+                                </a>
+                                <small class="text-muted d-block mt-1">
+                                    Role: {{ object.ami_secret_ref.role }}
+                                </small>
+                            {% elif object.ami_secret %}
+                                <code>••••••••</code>
+                                <small class="text-muted d-block">(stored directly - consider migrating to Secrets)</small>
+                            {% else %}
+                                <span class="text-muted">Not configured</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% if object.web_url %}
                     <tr>
                         <th scope="row">Web Interface</th>
                         <td>
-                            <a href="{{ object.web_url }}" target="_blank">
-                                {{ object.web_url }} <i class="mdi mdi-open-in-new"></i>
+                            <a href="{{ object.web_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="mdi mdi-open-in-new"></i> Open Web UI
                             </a>
                         </td>
                     </tr>
@@ -52,18 +70,8 @@
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row">PBX Status</th>
-                        <td>
-                            {% if pbx_status.online %}
-                                <span class="badge bg-success">
-                                    <i class="mdi mdi-check-circle"></i> Online
-                                </span>
-                            {% else %}
-                                <span class="badge bg-danger">
-                                    <i class="mdi mdi-close-circle"></i> Offline
-                                </span>
-                            {% endif %}
-                        </td>
+                        <th scope="row">Connection String</th>
+                        <td><code>{{ object.connection_string }}</code></td>
                     </tr>
                     {% if object.description %}
                     <tr>
@@ -84,47 +92,64 @@
         </div>
         {% endif %}
     </div>
-    
+
     <div class="col-md-6">
-        <!-- Statistics -->
+        <!-- PBX Status -->
         <div class="card">
+            <h5 class="card-header">PBX Status</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Connection Status</th>
+                        <td>
+                            {% if pbx_status.online %}
+                                <span class="badge bg-success">
+                                    <i class="mdi mdi-check-circle"></i> Online
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger">
+                                    <i class="mdi mdi-close-circle"></i> Offline
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if pbx_status.message %}
+                    <tr>
+                        <th scope="row">Message</th>
+                        <td>{{ pbx_status.message }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if pbx_status.version %}
+                    <tr>
+                        <th scope="row">Asterisk Version</th>
+                        <td><code>{{ pbx_status.version }}</code></td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="card mt-3">
             <h5 class="card-header">Statistics</h5>
             <div class="card-body">
                 <table class="table table-hover attr-table">
                     <tr>
-                        <th scope="row">Total Extensions</th>
+                        <th scope="row">Extensions</th>
                         <td>
                             <span class="badge bg-primary">{{ stats.extensions }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row">Active Extensions</th>
+                        <th scope="row">SIP Trunks</th>
                         <td>
-                            <span class="badge bg-success">{{ stats.active_extensions }}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Total Trunks</th>
-                        <td>
-                            <span class="badge bg-primary">{{ stats.trunks }}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Active Trunks</th>
-                        <td>
-                            <span class="badge bg-success">{{ stats.active_trunks }}</span>
+                            <span class="badge bg-info">{{ stats.sip_trunks }}</span>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">Total Calls</th>
                         <td>
-                            <span class="badge bg-info">{{ stats.total_calls }}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Calls Today</th>
-                        <td>
-                            <span class="badge bg-info">{{ stats.calls_today }}</span>
+                            <span class="badge bg-success">{{ stats.total_calls }}</span>
                         </td>
                     </tr>
                 </table>
@@ -136,15 +161,9 @@
             <h5 class="card-header">Quick Actions</h5>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    {% if object.web_url %}
-                    <a href="{{ object.web_url }}" target="_blank" class="btn btn-outline-primary">
-                        <i class="mdi mdi-open-in-new"></i> Open Web Interface
-                    </a>
-                    {% endif %}
-                    
                     <a href="{% url 'plugins:netbox_phonebox:extension_list' %}?pbx_server_id={{ object.pk }}" 
-                       class="btn btn-outline-info">
-                        <i class="mdi mdi-phone-classic"></i> View Extensions
+                       class="btn btn-outline-primary">
+                        <i class="mdi mdi-phone"></i> View Extensions
                     </a>
                     
                     <a href="{% url 'plugins:netbox_phonebox:siptrunk_list' %}?pbx_server_id={{ object.pk }}" 
@@ -153,7 +172,7 @@
                     </a>
                     
                     <a href="{% url 'plugins:netbox_phonebox:calllog_list' %}?pbx_server_id={{ object.pk }}" 
-                       class="btn btn-outline-info">
+                       class="btn btn-outline-success">
                         <i class="mdi mdi-phone-log"></i> View Call Logs
                     </a>
                 </div>
@@ -162,167 +181,61 @@
     </div>
 </div>
 
-<!-- Extensions -->
-{% if object.extensions.exists %}
+<!-- Related Objects Tabs -->
 <div class="row mt-3">
     <div class="col-12">
-        <div class="card">
-            <h5 class="card-header">
-                Extensions
-                <span class="badge bg-secondary float-end">{{ object.extensions.count }}</span>
-            </h5>
-            <div class="card-body">
-                <table class="table table-sm table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Extension</th>
-                            <th>Type</th>
-                            <th>Assigned To</th>
-                            <th>Status</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for ext in object.extensions.all|slice:":10" %}
-                        <tr>
-                            <td>
-                                <a href="{% url 'plugins:netbox_phonebox:extension' pk=ext.pk %}">
-                                    {{ ext.extension }}
-                                </a>
-                            </td>
-                            <td>
-                                <span class="badge bg-info">{{ ext.get_type_display }}</span>
-                            </td>
-                            <td>
-                                <small class="text-muted">
-                                    {% if ext.contact %}
-                                        {{ ext.contact }}
-                                    {% elif ext.device %}
-                                        {{ ext.device }}
-                                    {% else %}
-                                        Unassigned
-                                    {% endif %}
-                                </small>
-                            </td>
-                            <td>
-                                {% if ext.enabled %}
-                                    <span class="badge bg-success">Enabled</span>
-                                {% else %}
-                                    <span class="badge bg-danger">Disabled</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-end">
-                                <a href="{% url 'plugins:netbox_phonebox:make_call' %}?extension={{ ext.pk }}" 
-                                   class="btn btn-xs btn-success">
-                                    <i class="mdi mdi-phone"></i>
-                                </a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% if object.extensions.count > 10 %}
-                <div class="mt-2">
-                    <a href="{% url 'plugins:netbox_phonebox:extension_list' %}?pbx_server_id={{ object.pk }}" 
-                       class="btn btn-sm btn-outline-primary">
-                        View All {{ object.extensions.count }} Extensions
-                    </a>
-                </div>
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="extensions-tab" data-bs-toggle="tab" 
+                        data-bs-target="#extensions" type="button" role="tab">
+                    Extensions <span class="badge bg-secondary">{{ stats.extensions }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="trunks-tab" data-bs-toggle="tab" 
+                        data-bs-target="#trunks" type="button" role="tab">
+                    SIP Trunks <span class="badge bg-secondary">{{ stats.sip_trunks }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="calls-tab" data-bs-toggle="tab" 
+                        data-bs-target="#calls" type="button" role="tab">
+                    Recent Calls <span class="badge bg-secondary">{{ stats.total_calls }}</span>
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane show active" id="extensions" role="tabpanel">
+                {% if extensions_table.rows %}
+                    {% render_table extensions_table 'inc/table.html' %}
+                {% else %}
+                    <div class="alert alert-info m-3">
+                        <i class="mdi mdi-information"></i> No extensions found for this PBX server.
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="tab-pane" id="trunks" role="tabpanel">
+                {% if trunks_table.rows %}
+                    {% render_table trunks_table 'inc/table.html' %}
+                {% else %}
+                    <div class="alert alert-info m-3">
+                        <i class="mdi mdi-information"></i> No SIP trunks found for this PBX server.
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="tab-pane" id="calls" role="tabpanel">
+                {% if calls_table.rows %}
+                    {% render_table calls_table 'inc/table.html' %}
+                {% else %}
+                    <div class="alert alert-info m-3">
+                        <i class="mdi mdi-information"></i> No call logs found for this PBX server.
+                    </div>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
-{% endif %}
-
-<!-- SIP Trunks -->
-{% if object.sip_trunks.exists %}
-<div class="row mt-3">
-    <div class="col-12">
-        <div class="card">
-            <h5 class="card-header">
-                SIP Trunks
-                <span class="badge bg-secondary float-end">{{ object.sip_trunks.count }}</span>
-            </h5>
-            <div class="card-body">
-                <table class="table table-sm table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Host</th>
-                            <th>Provider</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for trunk in object.sip_trunks.all %}
-                        <tr>
-                            <td>
-                                <a href="{% url 'plugins:netbox_phonebox:siptrunk' pk=trunk.pk %}">
-                                    {{ trunk.name }}
-                                </a>
-                            </td>
-                            <td>
-                                <span class="badge bg-info">{{ trunk.get_type_display }}</span>
-                            </td>
-                            <td>
-                                <code>{{ trunk.host }}:{{ trunk.port }}</code>
-                            </td>
-                            <td>
-                                {% if trunk.provider %}
-                                    <a href="{% url 'plugins:netbox_phonebox:telephonyprovider' pk=trunk.provider.pk %}">
-                                        {{ trunk.provider }}
-                                    </a>
-                                {% else %}
-                                    <span class="text-muted">—</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if trunk.enabled %}
-                                    <span class="badge bg-success">Enabled</span>
-                                {% else %}
-                                    <span class="badge bg-danger">Disabled</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<!-- Metadata -->
-<div class="row mt-3">
-    <div class="col-12">
-        <div class="card">
-            <h5 class="card-header">Metadata</h5>
-            <div class="card-body">
-                <table class="table table-hover attr-table">
-                    <tr>
-                        <th scope="row">Created</th>
-                        <td>{{ object.created|date:"Y-m-d H:i:s" }}</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Last Updated</th>
-                        <td>{{ object.last_updated|date:"Y-m-d H:i:s" }}</td>
-                    </tr>
-                    {% if object.tags.all %}
-                    <tr>
-                        <th scope="row">Tags</th>
-                        <td>
-                            {% for tag in object.tags.all %}
-                                <span class="badge" style="background-color: #{{ tag.color }}">{{ tag.name }}</span>
-                            {% endfor %}
-                        </td>
-                    </tr>
-                    {% endif %}
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+{% endblock content %}
