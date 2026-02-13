@@ -5,7 +5,7 @@ from utilities.forms.fields import (
     DynamicModelMultipleChoiceField, 
     TagFilterField
 )
-from dcim.models import Device, Site, Location
+from dcim.models import Device
 from virtualization.models import VirtualMachine
 from tenancy.models import Contact
 
@@ -14,9 +14,8 @@ from .models import (
     SIPTrunk, Extension, CallLog, SECRETS_AVAILABLE
 )
 
-# Импорт Secret если доступен
 if SECRETS_AVAILABLE:
-    from netbox_secrets.models import Secret
+    from netbox_secrets.models import Secret, SecretRole
 
 
 class PhoneNumberForm(NetBoxModelForm):
@@ -66,73 +65,88 @@ class TelephonyProviderForm(NetBoxModelForm):
     
     class Meta:
         model = TelephonyProvider
-        fields = [
-            'name', 'description', 'website', 'support_phone', 
-            'support_email', 'comments', 'tags'
-        ]
+        fields = ['name', 'description', 'website', 'support_phone', 'support_email', 'comments', 'tags']
 
 
 class PBXServerForm(NetBoxModelForm):
     """Form for PBXServer model"""
     
+    # Поле для ввода пароля (не сохраняется напрямую в модель)
+    ami_password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'Enter AMI password',
+            'autocomplete': 'new-password'
+        }),
+        label='AMI Password',
+        help_text='Password will be securely stored in NetBox Secrets'
+    )
+    
     class Meta:
         model = PBXServer
         fields = [
             'name', 'type', 'hostname', 'ami_port', 'ami_username',
-            'ami_secret', 'web_url', 'enabled', 'description',
-            'comments', 'tags'
+            'web_url', 'enabled', 'description', 'comments', 'tags'
         ]
-        
-        widgets = {
-            'ami_secret': forms.PasswordInput(
-                attrs={
-                    'placeholder': 'Enter AMI password (or use Secret reference)',
-                    'autocomplete': 'new-password',
-                    'required': False
-                }
-            ),
-        }
-        
-        help_texts = {
-            'ami_secret': 'AMI password (legacy method - consider using Secret reference instead)',
-        }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # Сделать ami_secret необязательным
-        if 'ami_secret' in self.fields:
-            self.fields['ami_secret'].required = False
-        
-        # Динамически добавляем ami_secret_ref в fields если доступен
-        if SECRETS_AVAILABLE:
-            self.fields['ami_secret_ref'] = DynamicModelChoiceField(
-                queryset=Secret.objects.all(),
-                required=False,
-                label='AMI Secret (from Secrets)',
-                help_text='Select secret from NetBox Secrets (recommended)'
-            )
-            
-            # Переупорядочиваем поля
-            field_order = list(self.fields.keys())
-            if 'ami_secret' in field_order:
-                ami_secret_index = field_order.index('ami_secret')
-                field_order.insert(ami_secret_index + 1, 'ami_secret_ref')
-                self.order_fields(field_order)
+        # При редактировании показываем что пароль уже сохранен
+        if self.instance.pk:
+            if SECRETS_AVAILABLE and hasattr(self.instance, 'ami_secret_ref') and self.instance.ami_secret_ref:
+                self.fields['ami_password'].help_text = f'Current: Stored in Secret "{self.instance.ami_secret_ref.name}". Leave empty to keep current password.'
+            elif self.instance.ami_secret:
+                self.fields['ami_password'].help_text = 'Current: Stored in legacy field. Enter new password to migrate to Secrets.'
     
     def clean(self):
         cleaned_data = super().clean()
-        ami_secret = cleaned_data.get('ami_secret')
-        ami_secret_ref = cleaned_data.get('ami_secret_ref') if SECRETS_AVAILABLE else None
+        ami_password = cleaned_data.get('ami_password')
         
-        # Требуем хотя бы один из методов
-        if not self.instance.pk:
-            if not ami_secret and not ami_secret_ref:
-                raise forms.ValidationError(
-                    'Please provide either AMI Secret or AMI Secret Reference'
-            )
+        # При создании нового объекта требуем пароль
+        if not self.instance.pk and not ami_password:
+            raise forms.ValidationError('AMI Password is required')
         
         return cleaned_data
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        
+        ami_password = self.cleaned_data.get('ami_password')
+        
+        # Если введен новый пароль
+        if ami_password and SECRETS_AVAILABLE:
+            # Получаем или создаем SecretRole для PhoneBox
+            role, _ = SecretRole.objects.get_or_create(
+                name='phonebox',
+                defaults={
+                    'description': 'PhoneBox secrets (PBX, SIP, Extensions)'
+                }
+            )
+            
+            # Если уже есть Secret - обновляем его
+            if hasattr(instance, 'ami_secret_ref') and instance.ami_secret_ref:
+                secret = instance.ami_secret_ref
+                secret.plaintext = ami_password
+                secret.save()
+            else:
+                # Создаем новый Secret
+                secret_name = f"{instance.name} AMI Password"
+                secret = Secret.objects.create(
+                    role=role,
+                    name=secret_name,
+                    plaintext=ami_password
+                )
+                instance.ami_secret_ref = secret
+            
+            # Очищаем legacy поле
+            instance.ami_secret = ''
+        
+        if commit:
+            instance.save()
+            self.save_m2m()
+        
+        return instance
 
 
 class SIPTrunkForm(NetBoxModelForm):
@@ -147,57 +161,83 @@ class SIPTrunkForm(NetBoxModelForm):
         required=False
     )
     
+    # Поле для ввода пароля
+    sip_password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'Enter SIP password',
+            'autocomplete': 'new-password'
+        }),
+        label='SIP Password',
+        help_text='Password will be securely stored in NetBox Secrets'
+    )
+    
     class Meta:
         model = SIPTrunk
         fields = [
             'name', 'pbx_server', 'provider', 'type', 'host', 'port',
-            'transport', 'username', 'secret', 'context',
+            'transport', 'username', 'context',
             'enabled', 'description', 'comments', 'tags'
         ]
-        
-        widgets = {
-            'secret': forms.PasswordInput(
-                attrs={
-                    'placeholder': 'Enter SIP password (or use Secret reference)',
-                    'autocomplete': 'new-password'
-                }
-            ),
-        }
-        
-        help_texts = {
-            'secret': 'SIP password (legacy method - consider using Secret reference instead)',
-        }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # Динамически добавляем secret_ref в fields если доступен
-        if SECRETS_AVAILABLE:
-            self.fields['secret_ref'] = DynamicModelChoiceField(
-                queryset=Secret.objects.all(),
-                required=False,
-                label='Secret (from Secrets)',
-                help_text='Select secret from NetBox Secrets (recommended)'
-            )
-            
-            # Переупорядочиваем поля
-            field_order = list(self.fields.keys())
-            if 'secret' in field_order:
-                secret_index = field_order.index('secret')
-                field_order.insert(secret_index + 1, 'secret_ref')
-                self.order_fields(field_order)
+        # При редактировании показываем что пароль уже сохранен
+        if self.instance.pk:
+            if SECRETS_AVAILABLE and hasattr(self.instance, 'secret_ref') and self.instance.secret_ref:
+                self.fields['sip_password'].help_text = f'Current: Stored in Secret "{self.instance.secret_ref.name}". Leave empty to keep current password.'
+            elif self.instance.secret:
+                self.fields['sip_password'].help_text = 'Current: Stored in legacy field. Enter new password to migrate to Secrets.'
     
     def clean(self):
         cleaned_data = super().clean()
-        secret = cleaned_data.get('secret')
-        secret_ref = cleaned_data.get('secret_ref') if SECRETS_AVAILABLE else None
         username = cleaned_data.get('username')
-        if username and not secret and not secret_ref:
-            raise forms.ValidationError(
-                'Please provide either Secret or Secret Reference when Username is specified'
-            )
+        sip_password = cleaned_data.get('sip_password')
+        
+        # Если указан username, требуем пароль (только при создании)
+        if username and not self.instance.pk and not sip_password:
+            raise forms.ValidationError('SIP Password is required when Username is specified')
         
         return cleaned_data
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        
+        sip_password = self.cleaned_data.get('sip_password')
+        
+        # Если введен новый пароль
+        if sip_password and SECRETS_AVAILABLE:
+            role, _ = SecretRole.objects.get_or_create(
+                name='phonebox',
+                defaults={
+                    'description': 'PhoneBox secrets (PBX, SIP, Extensions)'
+                }
+            )
+            
+            # Если уже есть Secret - обновляем его
+            if hasattr(instance, 'secret_ref') and instance.secret_ref:
+                secret = instance.secret_ref
+                secret.plaintext = sip_password
+                secret.save()
+            else:
+                # Создаем новый Secret
+                secret_name = f"{instance.name} SIP Password"
+                secret = Secret.objects.create(
+                    role=role,
+                    name=secret_name,
+                    plaintext=sip_password
+                )
+                instance.secret_ref = secret
+            
+            # Очищаем legacy поле
+            instance.secret = ''
+        
+        if commit:
+            instance.save()
+            self.save_m2m()
+        
+        return instance
 
 
 class ExtensionForm(NetBoxModelForm):
@@ -217,49 +257,72 @@ class ExtensionForm(NetBoxModelForm):
         required=False
     )
     
+    # Поле для ввода пароля
+    extension_password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'Enter extension password',
+            'autocomplete': 'new-password'
+        }),
+        label='Extension Password',
+        help_text='Password will be securely stored in NetBox Secrets'
+    )
+    
     class Meta:
         model = Extension
         fields = [
             'extension', 'pbx_server', 'type', 'contact', 'device',
-            'secret', 'enabled', 'description', 'comments', 'tags'
+            'enabled', 'description', 'comments', 'tags'
         ]
-        
-        widgets = {
-            'secret': forms.PasswordInput(
-                attrs={
-                    'placeholder': 'Enter extension password (or use Secret reference)',
-                    'autocomplete': 'new-password'
-                }
-            ),
-        }
-        
-        help_texts = {
-            'secret': 'Extension password (legacy method - consider using Secret reference instead)',
-        }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # Динамически добавляем secret_ref в fields если доступен
-        if SECRETS_AVAILABLE:
-            self.fields['secret_ref'] = DynamicModelChoiceField(
-                queryset=Secret.objects.all(),
-                required=False,
-                label='Secret (from Secrets)',
-                help_text='Select secret from NetBox Secrets (recommended)'
+        # При редактировании показываем что пароль уже сохранен
+        if self.instance.pk:
+            if SECRETS_AVAILABLE and hasattr(self.instance, 'secret_ref') and self.instance.secret_ref:
+                self.fields['extension_password'].help_text = f'Current: Stored in Secret "{self.instance.secret_ref.name}". Leave empty to keep current password.'
+            elif self.instance.secret:
+                self.fields['extension_password'].help_text = 'Current: Stored in legacy field. Enter new password to migrate to Secrets.'
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        
+        extension_password = self.cleaned_data.get('extension_password')
+        
+        # Если введен новый пароль
+        if extension_password and SECRETS_AVAILABLE:
+            role, _ = SecretRole.objects.get_or_create(
+                name='phonebox',
+                defaults={
+                    'description': 'PhoneBox secrets (PBX, SIP, Extensions)'
+                }
             )
             
-            # Переупорядочиваем поля
-            field_order = list(self.fields.keys())
-            if 'secret' in field_order:
-                secret_index = field_order.index('secret')
-                field_order.insert(secret_index + 1, 'secret_ref')
-                self.order_fields(field_order)
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        # Для Extension секрет необязателен
-        return cleaned_data
+            # Если уже есть Secret - обновляем его
+            if hasattr(instance, 'secret_ref') and instance.secret_ref:
+                secret = instance.secret_ref
+                secret.plaintext = extension_password
+                secret.save()
+            else:
+                # Создаем новый Secret
+                secret_name = f"Extension {instance.extension} Password"
+                secret = Secret.objects.create(
+                    role=role,
+                    name=secret_name,
+                    plaintext=extension_password
+                )
+                instance.secret_ref = secret
+            
+            # Очищаем legacy поле
+            instance.secret = ''
+        
+        if commit:
+            instance.save()
+            self.save_m2m()
+        
+        return instance
+
 
 class MakeCallForm(forms.Form):
     """Form for initiating a call"""
@@ -302,11 +365,9 @@ class MakeCallForm(forms.Form):
     )
 
 
-# FilterSet Forms
+# FilterSet Forms (без изменений)
 
 class PhoneNumberFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for PhoneNumber model"""
-    
     model = PhoneNumber
     
     type = forms.MultipleChoiceField(
@@ -347,15 +408,11 @@ class PhoneNumberFilterForm(NetBoxModelFilterSetForm):
 
 
 class TelephonyProviderFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for TelephonyProvider model"""
-    
     model = TelephonyProvider
     tag = TagFilterField(model)
 
 
 class PBXServerFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for PBXServer model"""
-    
     model = PBXServer
     
     type = forms.MultipleChoiceField(
@@ -376,8 +433,6 @@ class PBXServerFilterForm(NetBoxModelFilterSetForm):
 
 
 class SIPTrunkFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for SIPTrunk model"""
-    
     model = SIPTrunk
     
     pbx_server_id = DynamicModelMultipleChoiceField(
@@ -415,8 +470,6 @@ class SIPTrunkFilterForm(NetBoxModelFilterSetForm):
 
 
 class ExtensionFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for Extension model"""
-    
     model = Extension
     
     pbx_server_id = DynamicModelMultipleChoiceField(
@@ -455,8 +508,6 @@ class ExtensionFilterForm(NetBoxModelFilterSetForm):
 
 
 class CallLogFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for CallLog model"""
-    
     model = CallLog
     
     pbx_server_id = DynamicModelMultipleChoiceField(
