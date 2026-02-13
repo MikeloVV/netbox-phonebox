@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('netbox_phonebox', '0003_add_secrets_integration'),
+        ('netbox_phonebox', '0003_add_grandstream_ucm'),
     ]
 
     operations = [
