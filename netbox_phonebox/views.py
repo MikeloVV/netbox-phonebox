@@ -12,146 +12,9 @@ from .pbx_utils import make_call, get_pbx_status, get_active_calls
 import csv
 import io
 
+# Phone Numbers Views
 
-
-class PhoneNumberDashboardView(LoginRequiredMixin, TemplateView):
-    """Dashboard with phone number and PBX statistics"""
-    
-    template_name = 'netbox_phonebox/dashboard.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # Phone Number Statistics
-        total = models.PhoneNumber.objects.count()
-        active = models.PhoneNumber.objects.filter(status='active').count()
-        reserved = models.PhoneNumber.objects.filter(status='reserved').count()
-        deprecated = models.PhoneNumber.objects.filter(status='deprecated').count()
-        
-        # Type statistics
-        type_stats = models.PhoneNumber.objects.values('type').annotate(
-            count=Count('id')
-        ).order_by('-count')
-        
-        # Provider statistics
-        provider_stats = models.PhoneNumber.objects.filter(
-            provider__isnull=False
-        ).values(
-            'provider__name', 'provider__id'
-        ).annotate(
-            count=Count('id')
-        ).order_by('-count')[:10]
-        
-        # Country statistics
-        country_stats = models.PhoneNumber.objects.exclude(
-            country_code=''
-        ).values('country_code').annotate(
-            count=Count('id')
-        ).order_by('-count')[:10]
-        
-        # Unassigned numbers
-        unassigned = models.PhoneNumber.objects.filter(
-            contact__isnull=True,
-            device__isnull=True,
-            virtual_machine__isnull=True
-        ).count()
-        
-        # Recent numbers
-        recent_numbers = models.PhoneNumber.objects.order_by('-created')[:10]
-        
-        # Provider count
-        providers_count = models.TelephonyProvider.objects.count()
-        
-        # PBX Statistics
-        pbx_servers_count = models.PBXServer.objects.count()
-        pbx_servers_online = 0
-        for pbx in models.PBXServer.objects.filter(enabled=True):
-            status = get_pbx_status(pbx)
-            if status.get('online'):
-                pbx_servers_online += 1
-        
-        extensions_count = models.Extension.objects.count()
-        active_extensions = models.Extension.objects.filter(enabled=True).count()
-        
-        trunks_count = models.SIPTrunk.objects.count()
-        active_trunks = models.SIPTrunk.objects.filter(enabled=True).count()
-        
-        # Call Statistics
-        from django.utils import timezone
-        from datetime import timedelta
-        
-        today = timezone.now().date()
-        week_ago = today - timedelta(days=7)
-        
-        total_calls = models.CallLog.objects.count()
-        calls_today = models.CallLog.objects.filter(
-            start_time__date=today
-        ).count()
-        calls_this_week = models.CallLog.objects.filter(
-            start_time__date__gte=week_ago
-        ).count()
-        
-        answered_calls = models.CallLog.objects.filter(
-            status='answered'
-        ).count()
-        
-        answer_rate = (answered_calls / total_calls * 100) if total_calls > 0 else 0
-        
-        # Recent calls
-        recent_calls = models.CallLog.objects.order_by('-start_time')[:10]
-        
-        # Chart data for providers
-        provider_chart_data = []
-        provider_chart_labels = []
-        for stat in provider_stats:
-            provider_chart_labels.append(stat['provider__name'])
-            provider_chart_data.append(stat['count'])
-        
-        # Chart data for types
-        type_chart_data = []
-        type_chart_labels = []
-        for stat in type_stats:
-            type_chart_labels.append(dict(models.PhoneNumber.TYPE_CHOICES).get(stat['type'], stat['type']))
-            type_chart_data.append(stat['count'])
-        
-        context.update({
-            # Phone Numbers
-            'total': total,
-            'active': active,
-            'reserved': reserved,
-            'deprecated': deprecated,
-            'unassigned': unassigned,
-            'providers_count': providers_count,
-            'type_stats': type_stats,
-            'provider_stats': provider_stats,
-            'country_stats': country_stats,
-            'recent_numbers': recent_numbers,
-            'provider_chart_data': provider_chart_data,
-            'provider_chart_labels': provider_chart_labels,
-            'type_chart_data': type_chart_data,
-            'type_chart_labels': type_chart_labels,
-            
-            # PBX
-            'pbx_servers_count': pbx_servers_count,
-            'pbx_servers_online': pbx_servers_online,
-            'extensions_count': extensions_count,
-            'active_extensions': active_extensions,
-            'trunks_count': trunks_count,
-            'active_trunks': active_trunks,
-            
-            # Calls
-            'total_calls': total_calls,
-            'calls_today': calls_today,
-            'calls_this_week': calls_this_week,
-            'answered_calls': answered_calls,
-            'answer_rate': round(answer_rate, 2),
-            'recent_calls': recent_calls,
-        })
-        
-        return context
-        
 class PhoneNumberListView(generic.ObjectListView):
-    """List view for phone numbers"""
     queryset = models.PhoneNumber.objects.all()
     table = tables.PhoneNumberTable
     filterset = filtersets.PhoneNumberFilterSet
@@ -159,176 +22,81 @@ class PhoneNumberListView(generic.ObjectListView):
 
 
 class PhoneNumberView(generic.ObjectView):
-    """Detail view for phone number"""
     queryset = models.PhoneNumber.objects.all()
 
 
 class PhoneNumberEditView(generic.ObjectEditView):
-    """Edit view for phone number"""
     queryset = models.PhoneNumber.objects.all()
     form = forms.PhoneNumberForm
 
 
 class PhoneNumberDeleteView(generic.ObjectDeleteView):
-    """Delete view for phone number"""
     queryset = models.PhoneNumber.objects.all()
 
 
-class PhoneNumberBulkDeleteView(generic.BulkDeleteView):
-    """Bulk delete view for phone numbers"""
+class PhoneNumberBulkImportView(generic.BulkImportView):
     queryset = models.PhoneNumber.objects.all()
+    model_form = forms.PhoneNumberForm  # Используем обычную форму
     table = tables.PhoneNumberTable
 
 
-class PhoneNumberBulkImportView(LoginRequiredMixin, FormView):
-    """Bulk import phone numbers from text"""
-    
-    template_name = 'netbox_phonebox/phonenumber_bulk_import.html'
-    form_class = forms.PhoneNumberBulkImportForm
-    
-    def form_valid(self, form):
-        numbers_text = form.cleaned_data['numbers']
-        country_code = form.cleaned_data.get('country_code', '')
-        phone_type = form.cleaned_data['type']
-        status = form.cleaned_data['status']
-        provider = form.cleaned_data.get('provider')
-        
-        numbers = [n.strip() for n in numbers_text.split('\n') if n.strip()]
-        
-        created = 0
-        errors = []
-        
-        for number in numbers:
-            try:
-                phone = models.PhoneNumber(
-                    number=number,
-                    country_code=country_code,
-                    type=phone_type,
-                    status=status,
-                    provider=provider
-                )
-                phone.clean()
-                phone.save()
-                created += 1
-            except Exception as e:
-                errors.append(f"{number}: {str(e)}")
-        
-        if created:
-            messages.success(
-                self.request,
-                f'Successfully imported {created} phone numbers'
-            )
-        
-        if errors:
-            for error in errors[:10]:
-                messages.warning(self.request, error)
-            
-            if len(errors) > 10:
-                messages.warning(
-                    self.request,
-                    f'... and {len(errors) - 10} more errors'
-                )
-        
-        return redirect('plugins:netbox_phonebox:phonenumber_list')
+class PhoneNumberBulkEditView(generic.BulkEditView):
+    queryset = models.PhoneNumber.objects.all()
+    filterset = filtersets.PhoneNumberFilterSet
+    table = tables.PhoneNumberTable
+    form = forms.PhoneNumberForm
 
 
-class PhoneNumberExportView(LoginRequiredMixin, View):
-    """Export phone numbers to CSV"""
-    
-    def get(self, request):
-        output = io.StringIO()
-        writer = csv.writer(output)
-        
-        writer.writerow([
-            'ID',
-            'Number',
-            'Normalized Number',
-            'Country Code',
-            'Type',
-            'Status',
-            'Provider',
-            'Contact',
-            'Device',
-            'Virtual Machine',
-            'Description',
-            'Carrier',
-            'Location',
-            'Created',
-        ])
-        
-        for phone in models.PhoneNumber.objects.all().select_related(
-            'provider', 'contact', 'device', 'virtual_machine'
-        ):
-            writer.writerow([
-                phone.pk,
-                phone.formatted_international,
-                phone.normalized_number,
-                phone.country_code,
-                phone.get_type_display(),
-                phone.get_status_display(),
-                phone.provider.name if phone.provider else '',
-                str(phone.contact) if phone.contact else '',
-                str(phone.device) if phone.device else '',
-                str(phone.virtual_machine) if phone.virtual_machine else '',
-                phone.description,
-                phone.carrier_name,
-                phone.geocoding_description,
-                phone.created.strftime('%Y-%m-%d %H:%M:%S'),
-            ])
-        
-        response = HttpResponse(
-            output.getvalue(),
-            content_type='text/csv'
-        )
-        response['Content-Disposition'] = 'attachment; filename="phone_numbers.csv"'
-        
-        return response
+class PhoneNumberBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.PhoneNumber.objects.all()
+    filterset = filtersets.PhoneNumberFilterSet
+    table = tables.PhoneNumberTable
 
 
-class TelephonyProviderListView(generic.ObjectListView):  # Изменено
-    """List view for telephony providers"""
-    queryset = models.TelephonyProvider.objects.all()  # Изменено
-    table = tables.TelephonyProviderTable  # Изменено
-    filterset = filtersets.TelephonyProviderFilterSet  # Изменено
-    filterset_form = forms.TelephonyProviderFilterForm  # Изменено
+# Telephony Provider Views
+
+class TelephonyProviderListView(generic.ObjectListView):
+    queryset = models.TelephonyProvider.objects.all()
+    table = tables.TelephonyProviderTable
+    filterset = filtersets.TelephonyProviderFilterSet
+    filterset_form = forms.TelephonyProviderFilterForm
 
 
 class TelephonyProviderView(generic.ObjectView):
-    """Detail view for telephony provider"""
     queryset = models.TelephonyProvider.objects.all()
-    
-    def get_extra_context(self, request, instance):
-        """Add statistics to context"""
-        stats = {
-            'total': instance.phone_numbers.count(),
-            'active': instance.phone_numbers.filter(status='active').count(),
-            'reserved': instance.phone_numbers.filter(status='reserved').count(),
-            'deprecated': instance.phone_numbers.filter(status='deprecated').count(),
-        }
-        
-        return {
-            'stats': stats,
-        }
 
 
-class TelephonyProviderEditView(generic.ObjectEditView):  # Изменено
-    """Edit view for telephony provider"""
-    queryset = models.TelephonyProvider.objects.all()  # Изменено
-    form = forms.TelephonyProviderForm  # Изменено
+class TelephonyProviderEditView(generic.ObjectEditView):
+    queryset = models.TelephonyProvider.objects.all()
+    form = forms.TelephonyProviderForm
 
 
-class TelephonyProviderDeleteView(generic.ObjectDeleteView):  # Изменено
-    """Delete view for telephony provider"""
-    queryset = models.TelephonyProvider.objects.all()  # Изменено
+class TelephonyProviderDeleteView(generic.ObjectDeleteView):
+    queryset = models.TelephonyProvider.objects.all()
 
 
-class TelephonyProviderBulkDeleteView(generic.BulkDeleteView):  # Изменено
-    """Bulk delete view for telephony providers"""
-    queryset = models.TelephonyProvider.objects.all()  # Изменено
-    table = tables.TelephonyProviderTable  # Изменено
-    
+class TelephonyProviderBulkImportView(generic.BulkImportView):
+    queryset = models.TelephonyProvider.objects.all()
+    model_form = forms.TelephonyProviderForm
+    table = tables.TelephonyProviderTable
+
+
+class TelephonyProviderBulkEditView(generic.BulkEditView):
+    queryset = models.TelephonyProvider.objects.all()
+    filterset = filtersets.TelephonyProviderFilterSet
+    table = tables.TelephonyProviderTable
+    form = forms.TelephonyProviderForm
+
+
+class TelephonyProviderBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.TelephonyProvider.objects.all()
+    filterset = filtersets.TelephonyProviderFilterSet
+    table = tables.TelephonyProviderTable
+
+
+# PBX Server Views
+
 class PBXServerListView(generic.ObjectListView):
-    """List view for PBX servers"""
     queryset = models.PBXServer.objects.all()
     table = tables.PBXServerTable
     filterset = filtersets.PBXServerFilterSet
@@ -336,54 +104,68 @@ class PBXServerListView(generic.ObjectListView):
 
 
 class PBXServerView(generic.ObjectView):
-    """Detail view for PBX server"""
     queryset = models.PBXServer.objects.all()
     
     def get_extra_context(self, request, instance):
-        """Add statistics to context"""
-        from django.utils import timezone  # Можно добавить здесь для уверенности
-        
-        stats = {
-            'extensions': instance.extensions.count(),
-            'active_extensions': instance.extensions.filter(enabled=True).count(),
-            'trunks': instance.sip_trunks.count(),
-            'active_trunks': instance.sip_trunks.filter(enabled=True).count(),
-            'total_calls': instance.call_logs.count(),
-            'calls_today': instance.call_logs.filter(
-                start_time__date=timezone.now().date()
-            ).count(),
-        }
+        from .pbx_utils import get_pbx_status
         
         # Get PBX status
-        from .pbx_utils import get_pbx_status
-        status = get_pbx_status(instance)
+        pbx_status = get_pbx_status(instance)
+        
+        # Get statistics
+        stats = {
+            'extensions': instance.extensions.count(),
+            'sip_trunks': instance.sip_trunks.count(),
+            'total_calls': models.CallLog.objects.filter(pbx_server=instance).count(),
+        }
+        
+        # Get related objects tables
+        extensions_table = tables.ExtensionTable(instance.extensions.all()[:10])
+        trunks_table = tables.SIPTrunkTable(instance.sip_trunks.all()[:10])
+        calls_table = tables.CallLogTable(
+            models.CallLog.objects.filter(pbx_server=instance).order_by('-start_time')[:10]
+        )
         
         return {
+            'pbx_status': pbx_status,
             'stats': stats,
-            'pbx_status': status,
+            'extensions_table': extensions_table,
+            'trunks_table': trunks_table,
+            'calls_table': calls_table,
         }
 
+
 class PBXServerEditView(generic.ObjectEditView):
-    """Edit view for PBX server"""
     queryset = models.PBXServer.objects.all()
     form = forms.PBXServerForm
 
 
 class PBXServerDeleteView(generic.ObjectDeleteView):
-    """Delete view for PBX server"""
     queryset = models.PBXServer.objects.all()
+
+
+class PBXServerBulkImportView(generic.BulkImportView):
+    queryset = models.PBXServer.objects.all()
+    model_form = forms.PBXServerForm
+    table = tables.PBXServerTable
+
+
+class PBXServerBulkEditView(generic.BulkEditView):
+    queryset = models.PBXServer.objects.all()
+    filterset = filtersets.PBXServerFilterSet
+    table = tables.PBXServerTable
+    form = forms.PBXServerForm
 
 
 class PBXServerBulkDeleteView(generic.BulkDeleteView):
-    """Bulk delete view for PBX servers"""
     queryset = models.PBXServer.objects.all()
+    filterset = filtersets.PBXServerFilterSet
     table = tables.PBXServerTable
 
 
 # SIP Trunk Views
 
 class SIPTrunkListView(generic.ObjectListView):
-    """List view for SIP trunks"""
     queryset = models.SIPTrunk.objects.all()
     table = tables.SIPTrunkTable
     filterset = filtersets.SIPTrunkFilterSet
@@ -391,31 +173,60 @@ class SIPTrunkListView(generic.ObjectListView):
 
 
 class SIPTrunkView(generic.ObjectView):
-    """Detail view for SIP trunk"""
     queryset = models.SIPTrunk.objects.all()
+    
+    def get_extra_context(self, request, instance):
+        # Get call statistics
+        stats = {
+            'total_calls': models.CallLog.objects.filter(
+                pbx_server=instance.pbx_server
+            ).count(),
+            'inbound_calls': models.CallLog.objects.filter(
+                pbx_server=instance.pbx_server,
+                direction='inbound'
+            ).count(),
+            'outbound_calls': models.CallLog.objects.filter(
+                pbx_server=instance.pbx_server,
+                direction='outbound'
+            ).count(),
+        }
+        
+        return {
+            'stats': stats,
+        }
 
 
 class SIPTrunkEditView(generic.ObjectEditView):
-    """Edit view for SIP trunk"""
     queryset = models.SIPTrunk.objects.all()
     form = forms.SIPTrunkForm
 
 
 class SIPTrunkDeleteView(generic.ObjectDeleteView):
-    """Delete view for SIP trunk"""
     queryset = models.SIPTrunk.objects.all()
+
+
+class SIPTrunkBulkImportView(generic.BulkImportView):
+    queryset = models.SIPTrunk.objects.all()
+    model_form = forms.SIPTrunkForm
+    table = tables.SIPTrunkTable
+
+
+class SIPTrunkBulkEditView(generic.BulkEditView):
+    queryset = models.SIPTrunk.objects.all()
+    filterset = filtersets.SIPTrunkFilterSet
+    table = tables.SIPTrunkTable
+    form = forms.SIPTrunkForm
 
 
 class SIPTrunkBulkDeleteView(generic.BulkDeleteView):
-    """Bulk delete view for SIP trunks"""
     queryset = models.SIPTrunk.objects.all()
+    filterset = filtersets.SIPTrunkFilterSet
     table = tables.SIPTrunkTable
 
 
 # Extension Views
 
 class ExtensionListView(generic.ObjectListView):
-    """List view for extensions"""
     queryset = models.Extension.objects.all()
     table = tables.ExtensionTable
     filterset = filtersets.ExtensionFilterSet
@@ -423,49 +234,71 @@ class ExtensionListView(generic.ObjectListView):
 
 
 class ExtensionView(generic.ObjectView):
-    """Detail view for extension"""
     queryset = models.Extension.objects.all()
     
     def get_extra_context(self, request, instance):
-        """Add call statistics to context"""
+        # Get statistics
         stats = {
             'phone_numbers': instance.phone_numbers.count(),
-            'total_calls': instance.call_logs.count(),
-            'inbound_calls': instance.call_logs.filter(direction='inbound').count(),
-            'outbound_calls': instance.call_logs.filter(direction='outbound').count(),
-            'answered_calls': instance.call_logs.filter(status='answered').count(),
+            'total_calls': models.CallLog.objects.filter(extension=instance).count(),
+            'inbound_calls': models.CallLog.objects.filter(
+                extension=instance,
+                direction='inbound'
+            ).count(),
+            'outbound_calls': models.CallLog.objects.filter(
+                extension=instance,
+                direction='outbound'
+            ).count(),
+            'answered_calls': models.CallLog.objects.filter(
+                extension=instance,
+                status='answered'
+            ).count(),
         }
         
-        # Recent calls
-        recent_calls = instance.call_logs.order_by('-start_time')[:10]
+        # Get related objects
+        phone_numbers_table = tables.PhoneNumberTable(instance.phone_numbers.all())
+        recent_calls_table = tables.CallLogTable(
+            models.CallLog.objects.filter(extension=instance).order_by('-start_time')[:10]
+        )
         
         return {
             'stats': stats,
-            'recent_calls': recent_calls,
+            'phone_numbers_table': phone_numbers_table,
+            'recent_calls_table': recent_calls_table,
         }
 
 
 class ExtensionEditView(generic.ObjectEditView):
-    """Edit view for extension"""
     queryset = models.Extension.objects.all()
     form = forms.ExtensionForm
 
 
 class ExtensionDeleteView(generic.ObjectDeleteView):
-    """Delete view for extension"""
     queryset = models.Extension.objects.all()
+
+
+class ExtensionBulkImportView(generic.BulkImportView):
+    queryset = models.Extension.objects.all()
+    model_form = forms.ExtensionForm
+    table = tables.ExtensionTable
+
+
+class ExtensionBulkEditView(generic.BulkEditView):
+    queryset = models.Extension.objects.all()
+    filterset = filtersets.ExtensionFilterSet
+    table = tables.ExtensionTable
+    form = forms.ExtensionForm
 
 
 class ExtensionBulkDeleteView(generic.BulkDeleteView):
-    """Bulk delete view for extensions"""
     queryset = models.Extension.objects.all()
+    filterset = filtersets.ExtensionFilterSet
     table = tables.ExtensionTable
 
 
 # Call Log Views
 
 class CallLogListView(generic.ObjectListView):
-    """List view for call logs"""
     queryset = models.CallLog.objects.all()
     table = tables.CallLogTable
     filterset = filtersets.CallLogFilterSet
@@ -473,121 +306,15 @@ class CallLogListView(generic.ObjectListView):
 
 
 class CallLogView(generic.ObjectView):
-    """Detail view for call log"""
     queryset = models.CallLog.objects.all()
 
 
 class CallLogDeleteView(generic.ObjectDeleteView):
-    """Delete view for call log"""
     queryset = models.CallLog.objects.all()
 
 
 class CallLogBulkDeleteView(generic.BulkDeleteView):
-    """Bulk delete view for call logs"""
     queryset = models.CallLog.objects.all()
+    filterset = filtersets.CallLogFilterSet
     table = tables.CallLogTable
 
-
-# Make Call View
-
-class MakeCallView(LoginRequiredMixin, FormView):
-    """View for initiating calls"""
-    
-    template_name = 'netbox_phonebox/make_call.html'
-    form_class = forms.MakeCallForm
-    
-    def get_initial(self):
-        """Pre-fill form from query parameters"""
-        initial = super().get_initial()
-        
-        if 'extension' in self.request.GET:
-            try:
-                extension_id = int(self.request.GET['extension'])
-                extension = models.Extension.objects.get(pk=extension_id)
-                initial['extension'] = extension
-                initial['pbx_server'] = extension.pbx_server
-            except:
-                pass
-        
-        if 'number' in self.request.GET:
-            initial['to_number'] = self.request.GET['number']
-        
-        return initial
-    
-    def form_valid(self, form):
-        """Initiate the call"""
-        pbx_server = form.cleaned_data['pbx_server']
-        extension = form.cleaned_data['extension']
-        to_number = form.cleaned_data['to_number']
-        
-        # Make the call
-        result = make_call(pbx_server, extension, to_number)
-        
-        if result['success']:
-            messages.success(
-                self.request,
-                f"Call initiated from {extension.extension} to {to_number}"
-            )
-        else:
-            messages.error(
-                self.request,
-                f"Failed to initiate call: {result['message']}"
-            )
-        
-        return redirect('plugins:netbox_phonebox:extension', pk=extension.pk)
-
-
-# Call Statistics View
-
-class CallStatisticsView(LoginRequiredMixin, TemplateView):
-    """View for call statistics and analytics"""
-    
-    template_name = 'netbox_phonebox/call_statistics.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # Overall statistics
-        total_calls = models.CallLog.objects.count()
-        answered_calls = models.CallLog.objects.filter(status='answered').count()
-        
-        # Calculate answer rate
-        answer_rate = (answered_calls / total_calls * 100) if total_calls > 0 else 0
-        
-        # Calls by direction
-        inbound = models.CallLog.objects.filter(direction='inbound').count()
-        outbound = models.CallLog.objects.filter(direction='outbound').count()
-        internal = models.CallLog.objects.filter(direction='internal').count()
-        
-        # Calls by status
-        status_stats = models.CallLog.objects.values('status').annotate(
-            count=Count('id')
-        ).order_by('-count')
-        
-        # Top extensions by call count
-        top_extensions = models.Extension.objects.annotate(
-            call_count=Count('call_logs')
-        ).order_by('-call_count')[:10]
-        
-        # Recent calls
-        recent_calls = models.CallLog.objects.order_by('-start_time')[:20]
-        
-        # Total call duration
-        total_duration = models.CallLog.objects.filter(
-            status='answered'
-        ).aggregate(Sum('duration'))['duration__sum'] or 0
-        
-        context.update({
-            'total_calls': total_calls,
-            'answered_calls': answered_calls,
-            'answer_rate': round(answer_rate, 2),
-            'inbound': inbound,
-            'outbound': outbound,
-            'internal': internal,
-            'status_stats': status_stats,
-            'top_extensions': top_extensions,
-            'recent_calls': recent_calls,
-            'total_duration': total_duration,
-        })
-        
-        return context
