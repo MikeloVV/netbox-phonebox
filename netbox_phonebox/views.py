@@ -1,8 +1,40 @@
+from django.shortcuts import render
+from django.views.generic import TemplateView, FormView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
 from netbox.views import generic
 from . import filtersets, forms, models, tables
 
-# Phone Numbers Views
 
+# Dashboard
+class PhoneNumberDashboardView(LoginRequiredMixin, TemplateView):
+    template_name = 'netbox_phonebox/dashboard.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Statistics
+        context['total_numbers'] = models.PhoneNumber.objects.count()
+        context['total_providers'] = models.TelephonyProvider.objects.count()
+        context['total_pbx_servers'] = models.PBXServer.objects.count()
+        context['total_extensions'] = models.Extension.objects.count()
+        context['total_trunks'] = models.SIPTrunk.objects.count()
+        context['total_calls'] = models.CallLog.objects.count()
+        
+        # Phone number statistics by type
+        context['mobile_numbers'] = models.PhoneNumber.objects.filter(type='mobile').count()
+        context['landline_numbers'] = models.PhoneNumber.objects.filter(type='landline').count()
+        context['voip_numbers'] = models.PhoneNumber.objects.filter(type='voip').count()
+        
+        # Phone number statistics by status
+        context['active_numbers'] = models.PhoneNumber.objects.filter(status='active').count()
+        context['reserved_numbers'] = models.PhoneNumber.objects.filter(status='reserved').count()
+        context['inactive_numbers'] = models.PhoneNumber.objects.filter(status='inactive').count()
+        
+        return context
+
+
+# Phone Numbers
 class PhoneNumberListView(generic.ObjectListView):
     queryset = models.PhoneNumber.objects.all()
     table = tables.PhoneNumberTable
@@ -25,7 +57,7 @@ class PhoneNumberDeleteView(generic.ObjectDeleteView):
 
 class PhoneNumberBulkImportView(generic.BulkImportView):
     queryset = models.PhoneNumber.objects.all()
-    model_form = forms.PhoneNumberForm  # Используем обычную форму
+    model_form = forms.PhoneNumberForm
     table = tables.PhoneNumberTable
 
 
@@ -42,8 +74,7 @@ class PhoneNumberBulkDeleteView(generic.BulkDeleteView):
     table = tables.PhoneNumberTable
 
 
-# Telephony Provider Views
-
+# Telephony Providers
 class TelephonyProviderListView(generic.ObjectListView):
     queryset = models.TelephonyProvider.objects.all()
     table = tables.TelephonyProviderTable
@@ -83,8 +114,7 @@ class TelephonyProviderBulkDeleteView(generic.BulkDeleteView):
     table = tables.TelephonyProviderTable
 
 
-# PBX Server Views
-
+# PBX Servers
 class PBXServerListView(generic.ObjectListView):
     queryset = models.PBXServer.objects.all()
     table = tables.PBXServerTable
@@ -152,8 +182,7 @@ class PBXServerBulkDeleteView(generic.BulkDeleteView):
     table = tables.PBXServerTable
 
 
-# SIP Trunk Views
-
+# SIP Trunks
 class SIPTrunkListView(generic.ObjectListView):
     queryset = models.SIPTrunk.objects.all()
     table = tables.SIPTrunkTable
@@ -165,19 +194,11 @@ class SIPTrunkView(generic.ObjectView):
     queryset = models.SIPTrunk.objects.all()
     
     def get_extra_context(self, request, instance):
-        # Get call statistics
+        # Get call statistics (if available)
         stats = {
-            'total_calls': models.CallLog.objects.filter(
-                pbx_server=instance.pbx_server
-            ).count(),
-            'inbound_calls': models.CallLog.objects.filter(
-                pbx_server=instance.pbx_server,
-                direction='inbound'
-            ).count(),
-            'outbound_calls': models.CallLog.objects.filter(
-                pbx_server=instance.pbx_server,
-                direction='outbound'
-            ).count(),
+            'total_calls': 0,
+            'inbound_calls': 0,
+            'outbound_calls': 0,
         }
         
         return {
@@ -213,8 +234,7 @@ class SIPTrunkBulkDeleteView(generic.BulkDeleteView):
     table = tables.SIPTrunkTable
 
 
-# Extension Views
-
+# Extensions
 class ExtensionListView(generic.ObjectListView):
     queryset = models.Extension.objects.all()
     table = tables.ExtensionTable
@@ -285,8 +305,7 @@ class ExtensionBulkDeleteView(generic.BulkDeleteView):
     table = tables.ExtensionTable
 
 
-# Call Log Views
-
+# Call Logs
 class CallLogListView(generic.ObjectListView):
     queryset = models.CallLog.objects.all()
     table = tables.CallLogTable
@@ -307,3 +326,83 @@ class CallLogBulkDeleteView(generic.BulkDeleteView):
     filterset = filtersets.CallLogFilterSet
     table = tables.CallLogTable
 
+
+# Call Statistics
+class CallStatisticsView(LoginRequiredMixin, TemplateView):
+    template_name = 'netbox_phonebox/call_statistics.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Overall statistics
+        context['total_calls'] = models.CallLog.objects.count()
+        context['answered_calls'] = models.CallLog.objects.filter(status='answered').count()
+        context['missed_calls'] = models.CallLog.objects.filter(status='no_answer').count()
+        context['failed_calls'] = models.CallLog.objects.filter(status='failed').count()
+        
+        # Direction statistics
+        context['inbound_calls'] = models.CallLog.objects.filter(direction='inbound').count()
+        context['outbound_calls'] = models.CallLog.objects.filter(direction='outbound').count()
+        context['internal_calls'] = models.CallLog.objects.filter(direction='internal').count()
+        
+        # Recent calls
+        context['recent_calls'] = models.CallLog.objects.order_by('-start_time')[:20]
+        
+        return context
+
+
+# Make Call
+class MakeCallView(LoginRequiredMixin, FormView):
+    template_name = 'netbox_phonebox/make_call.html'
+    form_class = forms.MakeCallForm
+    success_url = reverse_lazy('plugins:netbox_phonebox:dashboard')
+    
+    def get_initial(self):
+        initial = super().get_initial()
+        
+        # Pre-fill from GET parameters
+        if 'extension' in self.request.GET:
+            try:
+                extension_id = int(self.request.GET['extension'])
+                extension = models.Extension.objects.get(pk=extension_id)
+                initial['pbx_server'] = extension.pbx_server
+                initial['from_extension'] = extension
+            except (ValueError, models.Extension.DoesNotExist):
+                pass
+        
+        if 'number' in self.request.GET:
+            initial['to_number'] = self.request.GET['number']
+        
+        return initial
+    
+    def form_valid(self, form):
+        from .pbx_utils import initiate_call
+        
+        pbx_server = form.cleaned_data['pbx_server']
+        from_extension = form.cleaned_data['from_extension']
+        to_number = form.cleaned_data['to_number']
+        caller_id = form.cleaned_data.get('caller_id', '')
+        
+        # Initiate call
+        result = initiate_call(
+            pbx_server=pbx_server,
+            from_extension=from_extension.extension,
+            to_number=to_number,
+            caller_id=caller_id or from_extension.extension
+        )
+        
+        # Show result message
+        if result.get('success'):
+            from django.contrib import messages
+            messages.success(
+                self.request,
+                f"Call initiated successfully: {from_extension.extension} → {to_number}"
+            )
+        else:
+            from django.contrib import messages
+            messages.error(
+                self.request,
+                f"Failed to initiate call: {result.get('message', 'Unknown error')}"
+            )
+        
+        return super().form_valid(form)
