@@ -1,16 +1,5 @@
 from netbox.views import generic
-from django.db.models import Count, Q, Sum
-from django.shortcuts import redirect, get_object_or_404, render
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib import messages
-from django.views.generic import TemplateView, FormView, View
-from django.http import HttpResponse, JsonResponse
-from django.utils import timezone
-from datetime import timedelta
 from . import filtersets, forms, models, tables
-from .pbx_utils import make_call, get_pbx_status, get_active_calls
-import csv
-import io
 
 # Phone Numbers Views
 
