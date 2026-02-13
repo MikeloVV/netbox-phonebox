@@ -139,11 +139,15 @@ class PBXServerView(generic.ObjectView):
         }
         
         # Get related objects tables
-        extensions_table = tables.ExtensionTable(instance.extensions.all()[:10])
-        trunks_table = tables.SIPTrunkTable(instance.sip_trunks.all()[:10])
-        calls_table = tables.CallLogTable(
-            models.CallLog.objects.filter(pbx_server=instance).order_by('-start_time')[:10]
-        )
+        # ИСПРАВЛЕНИЕ: Сначала order_by, потом срез
+        extensions_qs = instance.extensions.all().order_by('extension')[:10]
+        extensions_table = tables.ExtensionTable(list(extensions_qs))
+        
+        trunks_qs = instance.sip_trunks.all().order_by('name')[:10]
+        trunks_table = tables.SIPTrunkTable(list(trunks_qs))
+        
+        calls_qs = models.CallLog.objects.filter(pbx_server=instance).order_by('-start_time')[:10]
+        calls_table = tables.CallLogTable(list(calls_qs))
         
         return {
             'pbx_status': pbx_status,
@@ -152,7 +156,6 @@ class PBXServerView(generic.ObjectView):
             'trunks_table': trunks_table,
             'calls_table': calls_table,
         }
-
 
 class PBXServerEditView(generic.ObjectEditView):
     queryset = models.PBXServer.objects.all()
@@ -241,7 +244,6 @@ class ExtensionListView(generic.ObjectListView):
     filterset = filtersets.ExtensionFilterSet
     filterset_form = forms.ExtensionFilterForm
 
-
 class ExtensionView(generic.ObjectView):
     queryset = models.Extension.objects.all()
     
@@ -265,17 +267,18 @@ class ExtensionView(generic.ObjectView):
         }
         
         # Get related objects
-        phone_numbers_table = tables.PhoneNumberTable(instance.phone_numbers.all())
-        recent_calls_table = tables.CallLogTable(
-            models.CallLog.objects.filter(extension=instance).order_by('-start_time')[:10]
-        )
+        # ИСПРАВЛЕНИЕ: Преобразуем в list после среза
+        phone_numbers_qs = instance.phone_numbers.all().order_by('number')
+        phone_numbers_table = tables.PhoneNumberTable(list(phone_numbers_qs))
+        
+        recent_calls_qs = models.CallLog.objects.filter(extension=instance).order_by('-start_time')[:10]
+        recent_calls_table = tables.CallLogTable(list(recent_calls_qs))
         
         return {
             'stats': stats,
             'phone_numbers_table': phone_numbers_table,
             'recent_calls_table': recent_calls_table,
         }
-
 
 class ExtensionEditView(generic.ObjectEditView):
     queryset = models.Extension.objects.all()
