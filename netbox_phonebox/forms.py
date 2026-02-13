@@ -87,7 +87,8 @@ class PBXServerForm(NetBoxModelForm):
             'ami_secret': forms.PasswordInput(
                 attrs={
                     'placeholder': 'Enter AMI password (or use Secret reference)',
-                    'autocomplete': 'new-password'
+                    'autocomplete': 'new-password',
+                    'required': False
                 }
             ),
         }
@@ -98,6 +99,10 @@ class PBXServerForm(NetBoxModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        # Сделать ami_secret необязательным
+        if 'ami_secret' in self.fields:
+            self.fields['ami_secret'].required = False
         
         # Динамически добавляем ami_secret_ref в fields если доступен
         if SECRETS_AVAILABLE:
@@ -121,9 +126,10 @@ class PBXServerForm(NetBoxModelForm):
         ami_secret_ref = cleaned_data.get('ami_secret_ref') if SECRETS_AVAILABLE else None
         
         # Требуем хотя бы один из методов
-        if not ami_secret and not ami_secret_ref:
-            raise forms.ValidationError(
-                'Please provide either AMI Secret or AMI Secret Reference'
+        if not self.instance.pk:
+            if not ami_secret and not ami_secret_ref:
+                raise forms.ValidationError(
+                    'Please provide either AMI Secret or AMI Secret Reference'
             )
         
         return cleaned_data
