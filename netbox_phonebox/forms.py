@@ -71,7 +71,6 @@ class TelephonyProviderForm(NetBoxModelForm):
 class PBXServerForm(NetBoxModelForm):
     """Form for PBXServer model"""
     
-    # Поле для ввода пароля (не сохраняется напрямую в модель)
     ami_password = forms.CharField(
         required=False,
         widget=forms.PasswordInput(attrs={
@@ -92,7 +91,6 @@ class PBXServerForm(NetBoxModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # При редактировании показываем что пароль уже сохранен
         if self.instance.pk:
             if SECRETS_AVAILABLE and hasattr(self.instance, 'ami_secret_ref') and self.instance.ami_secret_ref:
                 self.fields['ami_password'].help_text = f'Current: Stored in Secret "{self.instance.ami_secret_ref.name}". Leave empty to keep current password.'
@@ -101,60 +99,70 @@ class PBXServerForm(NetBoxModelForm):
                 self.fields['ami_password'].help_text = 'Current: Stored in legacy field. Enter new password to migrate to Secrets.'
                 self.fields['ami_password'].required = False
         else:
-            # При создании нового - пароль обязателен
             self.fields['ami_password'].required = True
     
     def clean_ami_password(self):
-        """Validate ami_password field"""
         ami_password = self.cleaned_data.get('ami_password')
         
-        # При создании нового объекта требуем пароль
         if not self.instance.pk and not ami_password:
             raise forms.ValidationError('AMI Password is required')
         
         return ami_password
     
     def save(self, commit=True):
-        instance = super().save(commit=False)
-        
-        # Получаем пароль из cleaned_data (уже проверенные данные)
+        # Сохраняем пароль для последующей обработки
         ami_password = self.cleaned_data.get('ami_password', '')
         
-        # Если введен новый пароль и доступен Secrets
-        if ami_password and SECRETS_AVAILABLE:
-            try:
-                # Получаем или создаем SecretRole для PhoneBox
-                role, _ = SecretRole.objects.get_or_create(
-                    name='phonebox',
-                    defaults={
-                        'description': 'PhoneBox secrets (PBX, SIP, Extensions)'
-                    }
-                )
-                
-                # Если уже есть Secret - обновляем его
-                if hasattr(instance, 'ami_secret_ref') and instance.ami_secret_ref:
-                    secret = instance.ami_secret_ref
-                    secret.plaintext = ami_password
-                    secret.save()
-                else:
-                    # Создаем новый Secret
-                    secret_name = f"{instance.name} AMI Password"
-                    secret = Secret.objects.create(
-                        role=role,
-                        name=secret_name,
-                        plaintext=ami_password
-                    )
-                    instance.ami_secret_ref = secret
-                
-                # Очищаем legacy поле
-                instance.ami_secret = ''
-            except Exception as e:
-                # Если не удалось создать Secret, сохраняем в legacy поле
-                instance.ami_secret = ami_password
+        # Сначала сохраняем основной объект
+        instance = super().save(commit=commit)
         
-        if commit:
-            instance.save()
-            self.save_m2m()
+        # Если commit=True и есть пароль, создаем/обновляем Secret
+        if commit and ami_password and SECRETS_AVAILABLE:
+            from django.db import transaction
+            
+            try:
+                with transaction.atomic():
+                    # Получаем или создаем SecretRole
+                    role, _ = SecretRole.objects.get_or_create(
+                        name='phonebox',
+                        defaults={
+                            'description': 'PhoneBox secrets (PBX, SIP, Extensions)'
+                        }
+                    )
+                    
+                    # Если уже есть Secret - обновляем
+                    if hasattr(instance, 'ami_secret_ref') and instance.ami_secret_ref:
+                        secret = instance.ami_secret_ref
+                        secret.plaintext = ami_password
+                        secret.save()
+                    else:
+                        # Создаем новый Secret
+                        secret_name = f"{instance.name} AMI Password"
+                        
+                        # Проверяем уникальность имени
+                        counter = 1
+                        original_name = secret_name
+                        while Secret.objects.filter(name=secret_name).exists():
+                            secret_name = f"{original_name} ({counter})"
+                            counter += 1
+                        
+                        secret = Secret.objects.create(
+                            role=role,
+                            name=secret_name,
+                            plaintext=ami_password
+                        )
+                        instance.ami_secret_ref = secret
+                        instance.ami_secret = ''
+                        instance.save()
+                        
+            except Exception as e:
+                # Если не удалось создать Secret, используем legacy поле
+                import logging
+                logger = logging.getLogger('netbox_phonebox')
+                logger.error(f"Failed to create Secret for {instance.name}: {e}")
+                
+                instance.ami_secret = ami_password
+                instance.save()
         
         return instance
 
@@ -170,7 +178,6 @@ class SIPTrunkForm(NetBoxModelForm):
         required=False
     )
     
-    # Поле для ввода пароля
     sip_password = forms.CharField(
         required=False,
         widget=forms.PasswordInput(attrs={
@@ -192,65 +199,58 @@ class SIPTrunkForm(NetBoxModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # При редактировании показываем что пароль уже сохранен
         if self.instance.pk:
             if SECRETS_AVAILABLE and hasattr(self.instance, 'secret_ref') and self.instance.secret_ref:
                 self.fields['sip_password'].help_text = f'Current: Stored in Secret "{self.instance.secret_ref.name}". Leave empty to keep current password.'
             elif self.instance.secret:
                 self.fields['sip_password'].help_text = 'Current: Stored in legacy field. Enter new password to migrate to Secrets.'
     
-    def clean(self):
-        cleaned_data = super().clean()
-        username = cleaned_data.get('username')
-        sip_password = cleaned_data.get('sip_password')
-        
-        # Если указан username, рекомендуем пароль (но не требуем)
-        if username and not sip_password and not self.instance.pk:
-            # Только предупреждение, не ошибка
-            pass
-        
-        return cleaned_data
-    
     def save(self, commit=True):
-        instance = super().save(commit=False)
-        
-        # Получаем пароль из cleaned_data
         sip_password = self.cleaned_data.get('sip_password', '')
         
-        # Если введен новый пароль и доступен Secrets
-        if sip_password and SECRETS_AVAILABLE:
-            try:
-                role, _ = SecretRole.objects.get_or_create(
-                    name='phonebox',
-                    defaults={
-                        'description': 'PhoneBox secrets (PBX, SIP, Extensions)'
-                    }
-                )
-                
-                # Если уже есть Secret - обновляем его
-                if hasattr(instance, 'secret_ref') and instance.secret_ref:
-                    secret = instance.secret_ref
-                    secret.plaintext = sip_password
-                    secret.save()
-                else:
-                    # Создаем новый Secret
-                    secret_name = f"{instance.name} SIP Password"
-                    secret = Secret.objects.create(
-                        role=role,
-                        name=secret_name,
-                        plaintext=sip_password
-                    )
-                    instance.secret_ref = secret
-                
-                # Очищаем legacy поле
-                instance.secret = ''
-            except Exception as e:
-                # Если не удалось создать Secret, сохраняем в legacy поле
-                instance.secret = sip_password
+        instance = super().save(commit=commit)
         
-        if commit:
-            instance.save()
-            self.save_m2m()
+        if commit and sip_password and SECRETS_AVAILABLE:
+            from django.db import transaction
+            
+            try:
+                with transaction.atomic():
+                    role, _ = SecretRole.objects.get_or_create(
+                        name='phonebox',
+                        defaults={
+                            'description': 'PhoneBox secrets (PBX, SIP, Extensions)'
+                        }
+                    )
+                    
+                    if hasattr(instance, 'secret_ref') and instance.secret_ref:
+                        secret = instance.secret_ref
+                        secret.plaintext = sip_password
+                        secret.save()
+                    else:
+                        secret_name = f"{instance.name} SIP Password"
+                        
+                        counter = 1
+                        original_name = secret_name
+                        while Secret.objects.filter(name=secret_name).exists():
+                            secret_name = f"{original_name} ({counter})"
+                            counter += 1
+                        
+                        secret = Secret.objects.create(
+                            role=role,
+                            name=secret_name,
+                            plaintext=sip_password
+                        )
+                        instance.secret_ref = secret
+                        instance.secret = ''
+                        instance.save()
+                        
+            except Exception as e:
+                import logging
+                logger = logging.getLogger('netbox_phonebox')
+                logger.error(f"Failed to create Secret for {instance.name}: {e}")
+                
+                instance.secret = sip_password
+                instance.save()
         
         return instance
 
@@ -271,7 +271,6 @@ class ExtensionForm(NetBoxModelForm):
         required=False
     )
     
-    # Поле для ввода пароля
     extension_password = forms.CharField(
         required=False,
         widget=forms.PasswordInput(attrs={
@@ -292,7 +291,6 @@ class ExtensionForm(NetBoxModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # При редактировании показываем что пароль уже сохранен
         if self.instance.pk:
             if SECRETS_AVAILABLE and hasattr(self.instance, 'secret_ref') and self.instance.secret_ref:
                 self.fields['extension_password'].help_text = f'Current: Stored in Secret "{self.instance.secret_ref.name}". Leave empty to keep current password.'
@@ -300,48 +298,54 @@ class ExtensionForm(NetBoxModelForm):
                 self.fields['extension_password'].help_text = 'Current: Stored in legacy field. Enter new password to migrate to Secrets.'
     
     def save(self, commit=True):
-        instance = super().save(commit=False)
-        
-        # Получаем пароль из cleaned_data
         extension_password = self.cleaned_data.get('extension_password', '')
         
-        # Если введен новый пароль и доступен Secrets
-        if extension_password and SECRETS_AVAILABLE:
-            try:
-                role, _ = SecretRole.objects.get_or_create(
-                    name='phonebox',
-                    defaults={
-                        'description': 'PhoneBox secrets (PBX, SIP, Extensions)'
-                    }
-                )
-                
-                # Если уже есть Secret - обновляем его
-                if hasattr(instance, 'secret_ref') and instance.secret_ref:
-                    secret = instance.secret_ref
-                    secret.plaintext = extension_password
-                    secret.save()
-                else:
-                    # Создаем новый Secret
-                    secret_name = f"Extension {instance.extension} Password"
-                    secret = Secret.objects.create(
-                        role=role,
-                        name=secret_name,
-                        plaintext=extension_password
-                    )
-                    instance.secret_ref = secret
-                
-                # Очищаем legacy поле
-                instance.secret = ''
-            except Exception as e:
-                # Если не удалось создать Secret, сохраняем в legacy поле
-                instance.secret = extension_password
+        instance = super().save(commit=commit)
         
-        if commit:
-            instance.save()
-            self.save_m2m()
+        if commit and extension_password and SECRETS_AVAILABLE:
+            from django.db import transaction
+            
+            try:
+                with transaction.atomic():
+                    role, _ = SecretRole.objects.get_or_create(
+                        name='phonebox',
+                        defaults={
+                            'description': 'PhoneBox secrets (PBX, SIP, Extensions)'
+                        }
+                    )
+                    
+                    if hasattr(instance, 'secret_ref') and instance.secret_ref:
+                        secret = instance.secret_ref
+                        secret.plaintext = extension_password
+                        secret.save()
+                    else:
+                        secret_name = f"Extension {instance.extension} Password"
+                        
+                        counter = 1
+                        original_name = secret_name
+                        while Secret.objects.filter(name=secret_name).exists():
+                            secret_name = f"{original_name} ({counter})"
+                            counter += 1
+                        
+                        secret = Secret.objects.create(
+                            role=role,
+                            name=secret_name,
+                            plaintext=extension_password
+                        )
+                        instance.secret_ref = secret
+                        instance.secret = ''
+                        instance.save()
+                        
+            except Exception as e:
+                import logging
+                logger = logging.getLogger('netbox_phonebox')
+                logger.error(f"Failed to create Secret for {instance.extension}: {e}")
+                
+                instance.secret = extension_password
+                instance.save()
         
         return instance
-
+        
 class MakeCallForm(forms.Form):
     """Form for initiating a call"""
     
