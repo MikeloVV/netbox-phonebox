@@ -185,8 +185,6 @@ class SIPTrunkForm(NetBoxModelForm):
         cleaned_data = super().clean()
         secret = cleaned_data.get('secret')
         secret_ref = cleaned_data.get('secret_ref') if SECRETS_AVAILABLE else None
-        
-        # Хотя бы один метод должен быть указан (если указан username)
         username = cleaned_data.get('username')
         if username and not secret and not secret_ref:
             raise forms.ValidationError(
@@ -251,7 +249,11 @@ class ExtensionForm(NetBoxModelForm):
                 secret_index = field_order.index('secret')
                 field_order.insert(secret_index + 1, 'secret_ref')
                 self.order_fields(field_order)
-
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        # Для Extension секрет необязателен
+        return cleaned_data
 
 class MakeCallForm(forms.Form):
     """Form for initiating a call"""

@@ -127,6 +127,7 @@ class PBXServer(NetBoxModel):
     ami_secret = models.CharField(
         max_length=255,
         blank=True,
+        default='',
         help_text='AMI secret/password (deprecated - use ami_secret_ref instead)'
     )
     
@@ -264,6 +265,7 @@ class SIPTrunk(NetBoxModel):
     secret = models.CharField(
         max_length=255,
         blank=True,
+        default='',
         help_text='SIP secret/password (deprecated - use secret_ref instead)'
     )
     
@@ -375,6 +377,7 @@ class Extension(NetBoxModel):
     secret = models.CharField(
         max_length=255,
         blank=True,
+        default='',
         help_text='Extension secret/password (deprecated - use secret_ref instead)'
     )
     
