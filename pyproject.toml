@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netbox-phonebox"
+version = "1.0.0"
+description = "Phone number management plugin for NetBox 4.x"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [
+    {name = "MikeloVV"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Django",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/MikeloVV/netbox-phonebox"
+Repository = "https://github.com/MikeloVV/netbox-phonebox"
+
+[tool.setuptools.packages.find]
+include = ["netbox_phonebox*"]
+
+[tool.setuptools.package-data]
+netbox_phonebox = ["templates/**/*.html"]

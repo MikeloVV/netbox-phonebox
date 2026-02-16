@@ -1,0 +1,100 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load plugins %}
+{% load render_table from django_tables2 %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="card">
+            <h5 class="card-header">PBX Server</h5>
+            <table class="table table-hover attr-table">
+                <tr>
+                    <th scope="row">Name</th>
+                    <td>{{ object.name }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Domain</th>
+                    <td>{{ object.domain|placeholder }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">IP Address</th>
+                    <td>
+                        {% if object.ip_address %}
+                            <a href="{{ object.ip_address.get_absolute_url }}">{{ object.ip_address }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">SIP Port</th>
+                    <td>{{ object.sip_port }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Site</th>
+                    <td>
+                        {% if object.site %}
+                            <a href="{{ object.site.get_absolute_url }}">{{ object.site }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Tenant</th>
+                    <td>
+                        {% if object.tenant %}
+                            <a href="{{ object.tenant.get_absolute_url }}">{{ object.tenant }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Description</th>
+                    <td>{{ object.description|placeholder }}</td>
+                </tr>
+            </table>
+        </div>
+        {% include 'inc/panels/tags.html' %}
+        {% include 'inc/panels/custom_fields.html' %}
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <h5 class="card-header">Credentials</h5>
+            <div class="card-body">
+                <p class="text-muted">
+                    Credentials for this PBX Server are managed via
+                    <strong>NetBox Secrets</strong>.
+                    Assign a Secret to this object to store login and password securely.
+                </p>
+                {% plugin_left_page object %}
+            </div>
+        </div>
+        <div class="card">
+            <h5 class="card-header">Statistics</h5>
+            <table class="table table-hover attr-table">
+                <tr>
+                    <th scope="row">SIP Trunks</th>
+                    <td>
+                        <a href="{% url 'plugins:netbox_phonebox:siptrunk_list' %}?pbx_server={{ object.pk }}">
+                            {{ object.sip_trunks.count }}
+                        </a>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Phone Numbers</th>
+                    <td>
+                        <a href="{% url 'plugins:netbox_phonebox:phonenumber_list' %}?pbx_server={{ object.pk }}">
+                            {{ object.phone_numbers.count }}
+                        </a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% plugin_full_width_page object %}
+{% endblock content %}

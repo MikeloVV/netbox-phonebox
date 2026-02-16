@@ -1,0 +1,81 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load plugins %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="card">
+            <h5 class="card-header">SIP Trunk</h5>
+            <table class="table table-hover attr-table">
+                <tr>
+                    <th scope="row">Name</th>
+                    <td>{{ object.name }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">PBX Server</th>
+                    <td>
+                        <a href="{{ object.pbx_server.get_absolute_url }}">{{ object.pbx_server }}</a>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Peer Address</th>
+                    <td>{{ object.peer_address|placeholder }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Peer Port</th>
+                    <td>{{ object.peer_port }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Transport</th>
+                    <td>{{ object.get_transport_display }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Tenant</th>
+                    <td>
+                        {% if object.tenant %}
+                            <a href="{{ object.tenant.get_absolute_url }}">{{ object.tenant }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Description</th>
+                    <td>{{ object.description|placeholder }}</td>
+                </tr>
+            </table>
+        </div>
+        {% include 'inc/panels/tags.html' %}
+        {% include 'inc/panels/custom_fields.html' %}
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <h5 class="card-header">Credentials</h5>
+            <div class="card-body">
+                <p class="text-muted">
+                    Credentials for this SIP Trunk are managed via
+                    <strong>NetBox Secrets</strong>.
+                    Assign a Secret to this object to store login and password securely.
+                </p>
+                {% plugin_left_page object %}
+            </div>
+        </div>
+        <div class="card">
+            <h5 class="card-header">Statistics</h5>
+            <table class="table table-hover attr-table">
+                <tr>
+                    <th scope="row">Phone Numbers</th>
+                    <td>
+                        <a href="{% url 'plugins:netbox_phonebox:phonenumber_list' %}?sip_trunk={{ object.pk }}">
+                            {{ object.phone_numbers.count }}
+                        </a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% plugin_full_width_page object %}
+{% endblock content %}

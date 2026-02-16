@@ -1,0 +1,146 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load plugins %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="card">
+            <h5 class="card-header">Phone Number</h5>
+            <table class="table table-hover attr-table">
+                <tr>
+                    <th scope="row">Number</th>
+                    <td>{{ object.number }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Label</th>
+                    <td>{{ object.label|placeholder }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Tenant</th>
+                    <td>
+                        {% if object.tenant %}
+                            <a href="{{ object.tenant.get_absolute_url }}">{{ object.tenant }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Site</th>
+                    <td>
+                        {% if object.site %}
+                            <a href="{{ object.site.get_absolute_url }}">{{ object.site }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Region</th>
+                    <td>
+                        {% if object.region %}
+                            <a href="{{ object.region.get_absolute_url }}">{{ object.region }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Provider</th>
+                    <td>
+                        {% if object.provider %}
+                            <a href="{{ object.provider.get_absolute_url }}">{{ object.provider }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Description</th>
+                    <td>{{ object.description|placeholder }}</td>
+                </tr>
+            </table>
+        </div>
+        {% include 'inc/panels/tags.html' %}
+        {% include 'inc/panels/custom_fields.html' %}
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <h5 class="card-header">PBX Assignment</h5>
+            <table class="table table-hover attr-table">
+                <tr>
+                    <th scope="row">PBX Server</th>
+                    <td>
+                        {% if object.pbx_server %}
+                            <a href="{{ object.pbx_server.get_absolute_url }}">{{ object.pbx_server }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">SIP Trunk</th>
+                    <td>
+                        {% if object.sip_trunk %}
+                            <a href="{{ object.sip_trunk.get_absolute_url }}">{{ object.sip_trunk }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Forward To</th>
+                    <td>
+                        {% if object.forward_to %}
+                            <a href="{{ object.forward_to.get_absolute_url }}">{{ object.forward_to }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        </div>
+        {% if object.assigned_object %}
+        <div class="card">
+            <h5 class="card-header">Assigned To</h5>
+            <table class="table table-hover attr-table">
+                <tr>
+                    <th scope="row">Object Type</th>
+                    <td>{{ object.assigned_object_type }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Object</th>
+                    <td>
+                        <a href="{{ object.assigned_object.get_absolute_url }}">{{ object.assigned_object }}</a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        {% endif %}
+        {% if object.forwarded_from.exists %}
+        <div class="card">
+            <h5 class="card-header">Forwarded From</h5>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Label</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fwd in object.forwarded_from.all %}
+                    <tr>
+                        <td><a href="{{ fwd.get_absolute_url }}">{{ fwd.number }}</a></td>
+                        <td>{{ fwd.label|placeholder }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% plugin_full_width_page object %}
+{% endblock content %}
