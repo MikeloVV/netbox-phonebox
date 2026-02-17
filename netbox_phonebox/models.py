@@ -1,11 +1,19 @@
 import re
 
+from django.contrib.contenttypes.fields import GenericRelation
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
 from django.urls import reverse
 
 from netbox.models import NetBoxModel
+
+# Импорт netbox-secrets
+try:
+    from netbox_secrets.models import Secret, SecretRole, UserKey
+    HAS_SECRETS = True
+except ImportError:
+    HAS_SECRETS = False
 
 
 phone_number_validator = RegexValidator(
@@ -70,10 +78,14 @@ class PBXServer(NetBoxModel):
         verbose_name="Site",
     )
 
-    # Credentials stored via NetBox Secrets — see the note below.
-    # The model does NOT store login/password fields.
-    # Users should attach a Secret (from netbox_secrets plugin) to PBXServer objects
-    # using the generic-relation mechanism provided by netbox_secrets.
+    # GenericRelation к netbox-secrets — это позволяет netbox-secrets
+    # автоматически отображать панель Secrets на странице объекта
+    if HAS_SECRETS:
+        secrets = GenericRelation(
+            Secret,
+            content_type_field="assigned_object_type",
+            object_id_field="assigned_object_id",
+        )
 
     class Meta:
         ordering = ["name"]
@@ -135,7 +147,13 @@ class SIPTrunk(NetBoxModel):
         verbose_name="Tenant",
     )
 
-    # Credentials stored via NetBox Secrets — same approach as PBXServer.
+    # GenericRelation к netbox-secrets
+    if HAS_SECRETS:
+        secrets = GenericRelation(
+            Secret,
+            content_type_field="assigned_object_type",
+            object_id_field="assigned_object_id",
+        )
 
     class Meta:
         ordering = ["name"]
@@ -212,8 +230,6 @@ class PhoneNumber(NetBoxModel):
         related_name="phone_numbers",
         verbose_name="Region",
     )
-
-    # Assignment — к кому привязан номер
     assigned_object_type = models.ForeignKey(
         to="contenttypes.ContentType",
         on_delete=models.SET_NULL,
@@ -229,7 +245,6 @@ class PhoneNumber(NetBoxModel):
         null=True,
         verbose_name="Assigned Object ID",
     )
-
     forward_to = models.ForeignKey(
         to="self",
         on_delete=models.SET_NULL,
@@ -238,7 +253,6 @@ class PhoneNumber(NetBoxModel):
         related_name="forwarded_from",
         verbose_name="Forward To",
     )
-
     description = models.CharField(
         max_length=200,
         blank=True,
@@ -260,7 +274,6 @@ class PhoneNumber(NetBoxModel):
 
     @property
     def assigned_object(self):
-        """Return the assigned object via generic FK."""
         if self.assigned_object_type and self.assigned_object_id:
             model_class = self.assigned_object_type.model_class()
             if model_class:
@@ -272,6 +285,5 @@ class PhoneNumber(NetBoxModel):
 
     def clean(self):
         super().clean()
-        # Normalize: strip whitespace
         if self.number:
             self.number = self.number.strip()
