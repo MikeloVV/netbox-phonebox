@@ -6,8 +6,6 @@ from django.db import models
 from django.urls import reverse
 
 from netbox.models import NetBoxModel
-from django.db import models
-from netbox_secrets.models import Secret
 
 
 phone_number_validator = RegexValidator(
@@ -17,7 +15,6 @@ phone_number_validator = RegexValidator(
 
 
 def validate_phone_number(value: str) -> None:
-    """Additional phone number validation."""
     digits = re.sub(r"[^\d]", "", value)
     if len(digits) < 3:
         raise ValidationError("Phone number must contain at least 3 digits.")
@@ -26,8 +23,6 @@ def validate_phone_number(value: str) -> None:
 
 
 class PBXServer(NetBoxModel):
-    """PBX Server — IP-АТС."""
-
     name = models.CharField(
         max_length=100,
         unique=True,
@@ -72,26 +67,6 @@ class PBXServer(NetBoxModel):
         verbose_name="Site",
     )
 
-    # Credentials via netbox-secrets
-    secret_login = models.ForeignKey(
-        to="netbox_secrets.Secret",
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        related_name="pbxserver_logins",
-        verbose_name="Login Secret",
-        help_text="Secret containing the login/username.",
-    )
-    secret_password = models.ForeignKey(
-        to="netbox_secrets.Secret",
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        related_name="pbxserver_passwords",
-        verbose_name="Password Secret",
-        help_text="Secret containing the password.",
-    )
-
     class Meta:
         ordering = ["name"]
         verbose_name = "PBX Server"
@@ -105,8 +80,6 @@ class PBXServer(NetBoxModel):
 
 
 class SIPTrunk(NetBoxModel):
-    """SIP Trunk — SIP-транк между АТС или к провайдеру."""
-
     name = models.CharField(
         max_length=100,
         unique=True,
@@ -152,26 +125,6 @@ class SIPTrunk(NetBoxModel):
         verbose_name="Tenant",
     )
 
-    # Credentials via netbox-secrets
-    secret_login = models.ForeignKey(
-        to="netbox_secrets.Secret",
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        related_name="siptrunk_logins",
-        verbose_name="Login Secret",
-        help_text="Secret containing the login/username.",
-    )
-    secret_password = models.ForeignKey(
-        to="netbox_secrets.Secret",
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        related_name="siptrunk_passwords",
-        verbose_name="Password Secret",
-        help_text="Secret containing the password.",
-    )
-
     class Meta:
         ordering = ["name"]
         verbose_name = "SIP Trunk"
@@ -185,8 +138,6 @@ class SIPTrunk(NetBoxModel):
 
 
 class PhoneNumber(NetBoxModel):
-    """Phone Number — телефонный номер."""
-
     number = models.CharField(
         max_length=32,
         unique=True,

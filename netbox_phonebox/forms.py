@@ -4,7 +4,6 @@ from dcim.models import Region, Site
 from circuits.models import Provider
 from ipam.models import IPAddress
 from tenancy.models import Tenant
-from netbox_secrets.models import Secret
 from utilities.forms.fields import (
     CommentField,
     DynamicModelChoiceField,
@@ -39,26 +38,12 @@ class PBXServerForm(NetBoxModelForm):
         queryset=Site.objects.all(),
         required=False,
     )
-    secret_login = DynamicModelChoiceField(
-        queryset=Secret.objects.all(),
-        required=False,
-        label="Login Secret",
-    )
-    secret_password = DynamicModelChoiceField(
-        queryset=Secret.objects.all(),
-        required=False,
-        label="Password Secret",
-    )
     comments = CommentField()
 
     fieldsets = (
         FieldSet(
             "name", "domain", "ip_address", "sip_port", "site", "tenant", "description",
             name="PBX Server",
-        ),
-        FieldSet(
-            "secret_login", "secret_password",
-            name="Credentials (NetBox Secrets)",
         ),
         FieldSet("tags", name="Tags"),
     )
@@ -73,8 +58,6 @@ class PBXServerForm(NetBoxModelForm):
             "site",
             "tenant",
             "description",
-            "secret_login",
-            "secret_password",
             "tags",
         ]
 
@@ -104,25 +87,15 @@ class PBXServerBulkEditForm(NetBoxModelBulkEditForm):
         queryset=Site.objects.all(),
         required=False,
     )
-    secret_login = DynamicModelChoiceField(
-        queryset=Secret.objects.all(),
-        required=False,
-        label="Login Secret",
-    )
-    secret_password = DynamicModelChoiceField(
-        queryset=Secret.objects.all(),
-        required=False,
-        label="Password Secret",
-    )
     description = forms.CharField(
         max_length=200,
         required=False,
     )
 
     fieldsets = (
-        FieldSet("tenant", "site", "secret_login", "secret_password", "description"),
+        FieldSet("tenant", "site", "description"),
     )
-    nullable_fields = ("tenant", "site", "secret_login", "secret_password", "description")
+    nullable_fields = ("tenant", "site", "description")
 
 
 class PBXServerImportForm(NetBoxModelImportForm):
@@ -148,26 +121,12 @@ class SIPTrunkForm(NetBoxModelForm):
         queryset=Tenant.objects.all(),
         required=False,
     )
-    secret_login = DynamicModelChoiceField(
-        queryset=Secret.objects.all(),
-        required=False,
-        label="Login Secret",
-    )
-    secret_password = DynamicModelChoiceField(
-        queryset=Secret.objects.all(),
-        required=False,
-        label="Password Secret",
-    )
     comments = CommentField()
 
     fieldsets = (
         FieldSet(
             "name", "pbx_server", "peer_address", "peer_port", "transport", "tenant", "description",
             name="SIP Trunk",
-        ),
-        FieldSet(
-            "secret_login", "secret_password",
-            name="Credentials (NetBox Secrets)",
         ),
         FieldSet("tags", name="Tags"),
     )
@@ -182,8 +141,6 @@ class SIPTrunkForm(NetBoxModelForm):
             "transport",
             "tenant",
             "description",
-            "secret_login",
-            "secret_password",
             "tags",
         ]
 
@@ -217,25 +174,15 @@ class SIPTrunkBulkEditForm(NetBoxModelBulkEditForm):
         queryset=Tenant.objects.all(),
         required=False,
     )
-    secret_login = DynamicModelChoiceField(
-        queryset=Secret.objects.all(),
-        required=False,
-        label="Login Secret",
-    )
-    secret_password = DynamicModelChoiceField(
-        queryset=Secret.objects.all(),
-        required=False,
-        label="Password Secret",
-    )
     description = forms.CharField(
         max_length=200,
         required=False,
     )
 
     fieldsets = (
-        FieldSet("pbx_server", "tenant", "secret_login", "secret_password", "description"),
+        FieldSet("pbx_server", "tenant", "description"),
     )
-    nullable_fields = ("tenant", "secret_login", "secret_password", "description")
+    nullable_fields = ("tenant", "description")
 
 
 class SIPTrunkImportForm(NetBoxModelImportForm):
@@ -251,7 +198,7 @@ class SIPTrunkImportForm(NetBoxModelImportForm):
 
 
 # ──────────────────────────────────────────────
-# PhoneNumber (без изменений)
+# PhoneNumber
 # ──────────────────────────────────────────────
 
 class PhoneNumberForm(NetBoxModelForm):

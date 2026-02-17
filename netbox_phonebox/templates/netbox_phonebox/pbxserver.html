@@ -62,37 +62,6 @@
     </div>
     <div class="col-md-6">
         <div class="card">
-            <h5 class="card-header">
-                <i class="mdi mdi-lock"></i> Credentials
-            </h5>
-            <table class="table table-hover attr-table">
-                <tr>
-                    <th scope="row">Login Secret</th>
-                    <td>
-                        {% if object.secret_login %}
-                            <a href="{{ object.secret_login.get_absolute_url }}">
-                                <i class="mdi mdi-lock"></i> {{ object.secret_login }}
-                            </a>
-                        {% else %}
-                            <span class="text-muted">&mdash; Not assigned</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">Password Secret</th>
-                    <td>
-                        {% if object.secret_password %}
-                            <a href="{{ object.secret_password.get_absolute_url }}">
-                                <i class="mdi mdi-lock"></i> {{ object.secret_password }}
-                            </a>
-                        {% else %}
-                            <span class="text-muted">&mdash; Not assigned</span>
-                        {% endif %}
-                    </td>
-                </tr>
-            </table>
-        </div>
-        <div class="card">
             <h5 class="card-header">Statistics</h5>
             <table class="table table-hover attr-table">
                 <tr>
