@@ -1,19 +1,13 @@
 import re
 
-from django.contrib.contenttypes.fields import GenericRelation
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
 from django.urls import reverse
 
 from netbox.models import NetBoxModel
-
-# Импорт netbox-secrets
-try:
-    from netbox_secrets.models import Secret, SecretRole, UserKey
-    HAS_SECRETS = True
-except ImportError:
-    HAS_SECRETS = False
+from django.db import models
+from netbox_secrets.models import Secret
 
 
 phone_number_validator = RegexValidator(
@@ -78,14 +72,25 @@ class PBXServer(NetBoxModel):
         verbose_name="Site",
     )
 
-    # GenericRelation к netbox-secrets — это позволяет netbox-secrets
-    # автоматически отображать панель Secrets на странице объекта
-    if HAS_SECRETS:
-        secrets = GenericRelation(
-            Secret,
-            content_type_field="assigned_object_type",
-            object_id_field="assigned_object_id",
-        )
+    # Credentials via netbox-secrets
+    secret_login = models.ForeignKey(
+        to="netbox_secrets.Secret",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="pbxserver_logins",
+        verbose_name="Login Secret",
+        help_text="Secret containing the login/username.",
+    )
+    secret_password = models.ForeignKey(
+        to="netbox_secrets.Secret",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="pbxserver_passwords",
+        verbose_name="Password Secret",
+        help_text="Secret containing the password.",
+    )
 
     class Meta:
         ordering = ["name"]
@@ -147,13 +152,25 @@ class SIPTrunk(NetBoxModel):
         verbose_name="Tenant",
     )
 
-    # GenericRelation к netbox-secrets
-    if HAS_SECRETS:
-        secrets = GenericRelation(
-            Secret,
-            content_type_field="assigned_object_type",
-            object_id_field="assigned_object_id",
-        )
+    # Credentials via netbox-secrets
+    secret_login = models.ForeignKey(
+        to="netbox_secrets.Secret",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="siptrunk_logins",
+        verbose_name="Login Secret",
+        help_text="Secret containing the login/username.",
+    )
+    secret_password = models.ForeignKey(
+        to="netbox_secrets.Secret",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="siptrunk_passwords",
+        verbose_name="Password Secret",
+        help_text="Secret containing the password.",
+    )
 
     class Meta:
         ordering = ["name"]
