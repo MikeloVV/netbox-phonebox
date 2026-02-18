@@ -1,4 +1,6 @@
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
+
 from netbox.views import generic
 
 from .models import PBXServer, SIPTrunk, PhoneNumber
@@ -19,6 +21,42 @@ from .forms import (
     PhoneNumberImportForm,
 )
 
+try:
+    from netbox_secrets.models import Secret, SessionKey
+    HAS_SECRETS = True
+except Exception:
+    HAS_SECRETS = False
+
+
+class SecretsContextMixin:
+    """Mixin to inject secrets context into detail views."""
+
+    def get_extra_context(self, request, instance):
+        context = super().get_extra_context(request, instance) or {}
+
+        if HAS_SECRETS:
+            ct = ContentType.objects.get_for_model(instance)
+            context["secrets"] = Secret.objects.filter(
+                assigned_object_type=ct,
+                assigned_object_id=instance.pk,
+            ).select_related("role")
+            context["content_type_id"] = ct.pk
+            context["has_secrets_plugin"] = True
+            context["has_session_key"] = False
+            if request.user.is_authenticated:
+                try:
+                    context["has_session_key"] = SessionKey.objects.filter(
+                        userkey__user=request.user
+                    ).exists()
+                except Exception:
+                    context["has_session_key"] = False
+        else:
+            context["secrets"] = []
+            context["has_secrets_plugin"] = False
+            context["has_session_key"] = False
+
+        return context
+
 
 # ──────────────────────────────────────────────
 # PBXServer
@@ -34,7 +72,7 @@ class PBXServerListView(generic.ObjectListView):
     filterset_form = PBXServerFilterForm
 
 
-class PBXServerView(generic.ObjectView):
+class PBXServerView(SecretsContextMixin, generic.ObjectView):
     queryset = PBXServer.objects.all()
 
 
@@ -78,7 +116,7 @@ class SIPTrunkListView(generic.ObjectListView):
     filterset_form = SIPTrunkFilterForm
 
 
-class SIPTrunkView(generic.ObjectView):
+class SIPTrunkView(SecretsContextMixin, generic.ObjectView):
     queryset = SIPTrunk.objects.all()
 
 
