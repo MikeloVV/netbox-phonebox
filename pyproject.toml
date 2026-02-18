@@ -30,4 +30,7 @@ Repository = "https://github.com/MikeloVV/netbox-phonebox"
 include = ["netbox_phonebox*"]
 
 [tool.setuptools.package-data]
-netbox_phonebox = ["templates/**/*.html"]
+netbox_phonebox = [
+    "templates/**/*.html",
+    "static/**/*",
+]
