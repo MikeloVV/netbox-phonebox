@@ -1,13 +1,24 @@
-from django.urls import include, path
+from django.urls import path
+from django.views.static import serve
+from pathlib import Path
 
 from netbox.views.generic import ObjectChangeLogView, ObjectJournalView
 
 from . import models, views
 
+# Path to static files
+STATIC_DIR = Path(__file__).parent / "static" / "netbox_phonebox"
+
 urlpatterns = [
-    # ──────────────────────────────────────────────
+    # Static JS (served via Django for simplicity)
+    path(
+        "static/js/phonebox_secrets.js",
+        serve,
+        {"document_root": str(STATIC_DIR / "js"), "path": "phonebox_secrets.js"},
+        name="phonebox_secrets_js",
+    ),
+
     # PBXServer
-    # ──────────────────────────────────────────────
     path("pbx-servers/", views.PBXServerListView.as_view(), name="pbxserver_list"),
     path("pbx-servers/add/", views.PBXServerEditView.as_view(), name="pbxserver_add"),
     path("pbx-servers/import/", views.PBXServerBulkImportView.as_view(), name="pbxserver_import"),
@@ -30,9 +41,7 @@ urlpatterns = [
     ),
     path("pbx-servers/<int:pk>/clone/", views.PBXServerEditView.as_view(), name="pbxserver_clone"),
 
-    # ──────────────────────────────────────────────
     # SIPTrunk
-    # ──────────────────────────────────────────────
     path("sip-trunks/", views.SIPTrunkListView.as_view(), name="siptrunk_list"),
     path("sip-trunks/add/", views.SIPTrunkEditView.as_view(), name="siptrunk_add"),
     path("sip-trunks/import/", views.SIPTrunkBulkImportView.as_view(), name="siptrunk_import"),
@@ -55,9 +64,7 @@ urlpatterns = [
     ),
     path("sip-trunks/<int:pk>/clone/", views.SIPTrunkEditView.as_view(), name="siptrunk_clone"),
 
-    # ──────────────────────────────────────────────
     # PhoneNumber
-    # ──────────────────────────────────────────────
     path("phone-numbers/", views.PhoneNumberListView.as_view(), name="phonenumber_list"),
     path("phone-numbers/add/", views.PhoneNumberEditView.as_view(), name="phonenumber_add"),
     path("phone-numbers/import/", views.PhoneNumberBulkImportView.as_view(), name="phonenumber_import"),
