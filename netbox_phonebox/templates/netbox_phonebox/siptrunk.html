@@ -1,6 +1,7 @@
 {% extends 'generic/object.html' %}
 {% load helpers %}
 {% load plugins %}
+{% load static %}
 
 {% block content %}
 <div class="row mb-3">
@@ -51,6 +52,9 @@
         {% plugin_left_page object %}
     </div>
     <div class="col-md-6">
+        {% if has_secrets_plugin %}
+            {% include 'netbox_phonebox/inc/secrets_panel.html' %}
+        {% endif %}
         <div class="card">
             <h5 class="card-header">Statistics</h5>
             <table class="table table-hover attr-table">
@@ -64,7 +68,6 @@
                 </tr>
             </table>
         </div>
-        {% plugin_right_page object %}
     </div>
 </div>
 
